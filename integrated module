@@ -1,44 +1,4 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Code Display</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            background-color: #f4f4f9;
-            margin: 0;
-            padding: 20px;
-        }
-        pre {
-            background: #282c34;
-            color: #ffffff;
-            padding: 20px;
-            border-radius: 8px;
-            overflow-x: auto;
-            line-height: 1.5;
-        }
-        code {
-            font-family: Consolas, "Courier New", monospace;
-        }
-    </style>
-</head>
-<body>
-    <h1>Local Vendor Support System Code</h1>
-    <p>The following is the implementation of the Local Vendor Support System in C++:</p>
-    <pre><code>
 
-
-// Structure to store customer details
-struct Customer {
-    int id;
-    string name;
-    string email;
-    string phone;
-    string password;
-    string location;
-};
 #include <iostream>
 #include <vector>
 #include <string>
@@ -1780,6 +1740,1063 @@ string getPasswordInput() {
     return password;
 }
 
+
+//Header Files
+#include <iostream>
+#include <vector>
+#include <queue>
+#include <limits>
+#include <tuple>
+#include <map>
+#include <algorithm>
+#include <fstream>
+#include <iomanip>
+#include <ctime>
+#include <set>
+#include <utility>
+#include <string>
+#include <cmath>
+#include <unordered_map>
+
+
+using namespace std;
+
+
+// Constants for max vendors and orders
+const int MAX_VENDORS = 100;
+const int numLocations = 30; // there are 30 locations
+
+
+
+// Structure for a vehicle
+struct Vehicle
+{
+    int id;
+    int currentLocation; // Current location index of the vehicle
+    double maxCapacity;
+    double currentLoad;
+    bool isAvailable;
+};
+
+
+// Structure for an order,for assigning to vehicles
+struct Order2
+{
+    int id;
+    int deliveryLocation; // Delivery location index
+    double weight;
+};
+
+// Helper function to format time
+std::string formatTime(std::time_t time)
+{
+    char buffer[20];
+    std::strftime(buffer, sizeof(buffer), "%Y-%m-%d %H:%M:%S", std::localtime(&time));
+    return std::string(buffer);
+}
+
+
+
+// Define location names
+std::map<int, std::string> locationNames =
+{
+
+    {0, "Angol"},
+    {1, "Udyambag"},
+    {2, "Kamalapur"},
+    {3, "Desur"},
+    {4, "Channamma Circle"},
+    {5, "Bagalkot Galli"},
+    {6, "Gokak Galli"},
+    {7, "Gadag Galli"},
+    {8, "Jamboti Galli"},
+    {9, "Khanbhag"},
+    {10, "Tilakwadi"},
+    {11, "Malmaruti"},
+    {12, "APMC Yard"},
+    {13, "Fort Galli"},
+    {14, "Gandhi Bazar"},
+    {15, "Shivaji Nagar"},
+    {16, "Venkatapur"},
+    {17, "Ambedkar Nagar"},
+    {18, "Samyukta Nagar"},
+    {19, "RPD Cross"},
+    {20, "Vidhya Nagar"},
+    {21, "Azad Nagar"},
+    {22, "Desai Galli"},
+    {23, "Jayanagar"},
+    {24, "Anand Nagar"},
+    {25, "Ramteerth Nagar"},
+    {26, "Mahalaxmi Nagar"},
+    {27, "Vidhyanagar"},
+    {28, "Katipalla"},
+    {29, "Murarji Peth"}
+
+};
+
+
+// 30x30 distance matrix (example values, replace with actual distances)
+std::vector<std::vector<double>>dist =
+{
+
+    {0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120, 130, 140, 150, 160, 170, 180, 190, 200, 210, 220, 230, 240, 250, 260, 270, 280, 290},
+    {10, 0, 15, 25, 35, 45, 55, 65, 75, 85, 95, 105, 115, 125, 135, 145, 155, 165, 175, 185, 195, 205, 215, 225, 235, 245, 255, 265, 275, 285},
+    {20, 15, 0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120, 130, 140, 150, 160, 170, 180, 190, 200, 210, 220, 230, 240, 250, 260, 270},
+    {30, 25, 10, 0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120, 130, 140, 150, 160, 170, 180, 190, 200, 210, 220, 230, 240, 250, 260},
+    {40, 35, 20, 10, 0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120, 130, 140, 150, 160, 170, 180, 190, 200, 210, 220, 230, 240, 250},
+    {50, 45, 30, 20, 10, 0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120, 130, 140, 150, 160, 170, 180, 190, 200, 210, 220, 230, 240},
+    {60, 55, 40, 30, 20, 10, 0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120, 130, 140, 150, 160, 170, 180, 190, 200, 210, 220, 230},
+    {70, 65, 50, 40, 30, 20, 10, 0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120, 130, 140, 150, 160, 170, 180, 190, 200, 210, 220},
+    {80, 75, 60, 50, 40, 30, 20, 10, 0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120, 130, 140, 150, 160, 170, 180, 190, 200, 210},
+    {90, 85, 70, 60, 50, 40, 30, 20, 10, 0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120, 130, 140, 150, 160, 170, 180, 190, 200},
+    {100, 95, 80, 70, 60, 50, 40, 30, 20, 10, 0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120, 130, 140, 150, 160, 170, 180, 190},
+    {110, 105, 90, 80, 70, 60, 50, 40, 30, 20, 10, 0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120, 130, 140, 150, 160, 170, 180},
+    {120, 115, 100, 90, 80, 70, 60, 50, 40, 30, 20, 10, 0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120, 130, 140, 150, 160, 170},
+    {130, 125, 110, 100, 90, 80, 70, 60, 50, 40, 30, 20, 10, 0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120, 130, 140, 150, 160},
+    {140, 135, 120, 110, 100, 90, 80, 70, 60, 50, 40, 30, 20, 10, 0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120, 130, 140, 150},
+    {150, 145, 130, 120, 110, 100, 90, 80, 70, 60, 50, 40, 30, 20, 10, 0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120, 130, 140},
+    {160, 155, 140, 130, 120, 110, 100, 90, 80, 70, 60, 50, 40, 30, 20, 10, 0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120, 130},
+    {170, 165, 150, 140, 130, 120, 110, 100, 90, 80, 70, 60, 50, 40, 30, 20, 10, 0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120},
+    {180, 175, 160, 150, 140, 130, 120, 110, 100, 90, 80, 70, 60, 50, 40, 30, 20, 10, 0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110},
+    {190, 185, 170, 160, 150, 140, 130, 120, 110, 100, 90, 80, 70, 60, 50, 40, 30, 20, 10, 0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100},
+    {200, 195, 180, 170, 160, 150, 140, 130, 120, 110, 100, 90, 80, 70, 60, 50, 40, 30, 20, 10, 0, 10, 20, 30, 40, 50, 60, 70, 80, 90},
+    {210, 205, 190, 180, 170, 160, 150, 140, 130, 120, 110, 100, 90, 80, 70, 60, 50, 40, 30, 20, 10, 0, 10, 20, 30, 40, 50, 60, 70, 80},
+    {220, 215, 200, 190, 180, 170, 160, 150, 140, 130, 120, 110, 100, 90, 80, 70, 60, 50, 40, 30, 20, 10, 0, 10, 20, 30, 40, 50, 60, 70},
+    {230, 225, 210, 200, 190, 180, 170, 160, 150, 140, 130, 120, 110, 100, 90, 80, 70, 60, 50, 40, 30, 20, 10, 0, 10, 20, 30, 40, 50, 60},
+    {240, 235, 220, 210, 200, 190, 180, 170, 160, 150, 140, 130, 120, 110, 100, 90, 80, 70, 60, 50, 40, 30, 20, 10, 0, 10, 20, 30, 40, 50},
+    {250, 245, 230, 220, 210, 200, 190, 180, 170, 160, 150, 140, 130, 120, 110, 100, 90, 80, 70, 60, 50, 40, 30, 20, 10, 0, 10, 20, 30, 40},
+    {260, 255, 240, 230, 220, 210, 200, 190, 180, 170, 160, 150, 140, 130, 120, 110, 100, 90, 80, 70, 60, 50, 40, 30, 20, 10, 0, 10, 20, 30},
+    {270, 265, 250, 240, 230, 220, 210, 200, 190, 180, 170, 160, 150, 140, 130, 120, 110, 100, 90, 80, 70, 60, 50, 40, 30, 20, 10, 0, 10, 20},
+    {280, 275, 260, 250, 240, 230, 220, 210, 200, 190, 180, 170, 160, 150, 140, 130, 120, 110, 100, 90, 80, 70, 60, 50, 40, 30, 20, 10, 0, 10},
+    {290, 285, 270, 260, 250, 240, 230, 220, 210, 200, 190, 180, 170, 160, 150, 140, 130, 120, 110, 100, 90, 80, 70, 60, 50, 40, 30, 20, 10, 0}
+
+};
+
+
+std::unordered_map<int, std::string> unorderedLocationNames(locationNames.begin(), locationNames.end());
+
+
+// Function prototypes
+
+void displayMainMenu();
+bool validateLocations(int source, int destination, const std::vector<std::vector<double>>& distanceMatrix);
+double adjustSpeedForTimeOfDay(double averageSpeed, const std::string& timeOfDay);
+std::vector<std::vector<std::pair<int, int>>> calculateDeliveryTime(const std::vector<std::vector<double>>& distanceMatrix, double adjustedSpeed);
+void displayOptimalRoute(const std::vector<std::vector<double>>& distanceMatrix, int source, int destination);
+void displayRouteDetails(const std::vector<std::vector<double>>& distanceMatrix, const std::vector<std::vector<std::pair<int, int>>>& deliveryTimeMatrix, double costPerKm, double costPerHour, double fuelEfficiency, int source, int destination);
+void displayLocations(const std::unordered_map<int, std::string>& locationNames); // Prototype for displayLocations
+void assignVehiclesToOrders(std::vector<Vehicle>& vehicles, std::vector<Order2>& orders, const std::vector<std::vector<double>>& dist, const std::unordered_map<int, std::string>& locationNames);
+void resetVehicle(Vehicle& vehicle, int initialLocation);
+void updateVehicleLocation(Vehicle& vehicle, int newLocation, const std::unordered_map<int, std::string>& locationNames);
+void dijkstra(int source, std::vector<int>& distances, std::vector<bool>& visited, std::vector<int>& previous);
+std::vector<int> reconstructPath(int source, int destination, const std::vector<int>& previous);
+void savePathToFile(const std::vector<int>& path, const std::unordered_map<int, std::string>& locationNames, const std::string& filename);
+std::vector<int> loadPathFromFile(const std::string& filename);
+void visualizeMap(const std::vector<int>& path);
+
+
+
+
+// Function to log the reset activity to a file
+void logVehicleReset(const Vehicle& vehicle)
+{
+
+    std::ofstream logFile("vehicle_reset.log", std::ios_base::app);
+    if (logFile.is_open())
+    {
+        std::time_t now = std::time(nullptr);
+        logFile << "Vehicle ID: " << vehicle.id
+                << " | Reset at: " << std::ctime(&now)
+                << " | New Location: " << vehicle.currentLocation
+                << " | New Load: " << vehicle.currentLoad
+                << " | Availability: " << (vehicle.isAvailable ? "Yes" : "No") << "\n";
+    }
+
+}
+
+
+// Extended resetVehicle function
+void resetVehicle(Vehicle& vehicle, int initialLocation)
+{
+    vehicle.currentLoad = 0;             // Reset the current load to 0
+    vehicle.currentLocation = initialLocation; // Reset to the specified location
+    vehicle.isAvailable = true;           // Set the vehicle's availability to true
+
+    // Log the reset activity
+    logVehicleReset(vehicle);
+
+    // Print confirmation message to the console
+    std::cout << "Vehicle " << vehicle.id << " has been reset.\n"
+              << "New Location: " << vehicle.currentLocation << "\n"
+              << "New Load: " << vehicle.currentLoad << "\n"
+              << "Availability: " << (vehicle.isAvailable ? "Yes" : "No") << std::endl;
+}
+
+
+// Function to log the save operation to a file
+void logSaveOperation(const std::string& filename, bool success)
+{
+
+    std::ofstream logFile("save_path_log.txt", std::ios_base::app);
+    if (logFile.is_open())
+    {
+        std::time_t now = std::time(nullptr);
+        logFile << "Path save operation to " << filename << " at " << std::ctime(&now)
+                << "Status: " << (success ? "Success" : "Failure") << "\n";
+        logFile.close();
+    }
+    else
+    {
+        std::cerr << "Unable to open log file for writing." << std::endl;
+    }
+
+}
+
+
+// Expanded savePathToFile function
+void savePathToFile(const std::vector<int>& path, const std::unordered_map<int, std::string>& locationNames, const std::string& filename)
+{
+
+    std::ofstream file;
+    try
+    {
+        file.open(filename);
+        if (!file)
+        {
+            throw std::ios_base::failure("Failed to open file.");
+        }
+
+        for (int id : path)
+        {
+            if (locationNames.find(id) != locationNames.end())
+            {
+                file << locationNames.at(id) << "\n";  // Write location name to file
+            }
+            else
+            {
+                std::cerr << "Warning: Location ID " << id << " not found in location names map.\n";
+            }
+        }
+
+        file.close();
+        if (file.fail())
+        {
+            throw std::ios_base::failure("Failed to write to file.");
+        }
+
+        std::cout << "Path successfully saved to " << filename << std::endl;
+        logSaveOperation(filename, true);
+
+    }
+    catch (const std::exception& e)
+    {
+        std::cerr << "Error: " << e.what() << std::endl;
+        logSaveOperation(filename, false);
+    }
+
+}
+
+
+// Function to log the display operation to a file
+void logDisplayOperation(bool success)
+{
+
+    std::ofstream logFile("display_locations_log.txt", std::ios_base::app);
+    if (logFile.is_open())
+    {
+        std::time_t now = std::time(nullptr);
+        logFile << "Display operation at " << std::ctime(&now)
+                << "Status: " << (success ? "Success" : "Failure") << "\n";
+        logFile.close();
+    }
+    else
+    {
+        std::cerr << "Unable to open log file for writing." << std::endl;
+    }
+
+}
+
+
+// Expanded displayLocations function
+void displayLocations(const std::unordered_map<int, std::string>& locationNames)
+{
+
+    if (locationNames.empty())
+    {
+        std::cout << "No available locations to display." << std::endl;
+        logDisplayOperation(false);
+        return;
+    }
+
+    // Convert unordered_map to vector of pairs for sorting
+    std::vector<std::pair<int, std::string>> locations(locationNames.begin(), locationNames.end());
+
+    // Sort locations by name
+    std::sort(locations.begin(), locations.end(),
+              [](const std::pair<int, std::string>& a, const std::pair<int, std::string>& b)
+              {
+                  return a.second < b.second;
+              }
+              );
+
+    std::cout << "Available Locations (sorted by name):" << std::endl;
+    for (const auto& location : locations)
+    {
+        std::cout << location.first << ": " << location.second << std::endl;
+    }
+    std::cout << "==============================" << std::endl;
+
+    logDisplayOperation(true);
+
+}
+
+
+// Define other function implementations here...
+void assignVehiclesToOrders(std::vector<Vehicle>& vehicles, std::vector<Order2>& orders, const std::vector<std::vector<double>>& dist, const std::unordered_map<int, std::string>& locationNames)
+{
+
+    for (Order2& order : orders)
+    {
+        int bestVehicleIndex = -1;
+        double minDistance = std::numeric_limits<double>::max();
+
+        // Find the nearest vehicle with sufficient capacity
+        for (size_t i = 0; i < vehicles.size(); ++i)
+        {
+            Vehicle& vehicle = vehicles[i];
+
+            if (vehicle.currentLoad + order.weight <= vehicle.maxCapacity)
+            {
+                double distance = dist[vehicle.currentLocation][order.deliveryLocation];
+
+                if (distance < minDistance)
+                {
+                    minDistance = distance;
+                    bestVehicleIndex = i;
+                }
+            }
+        }
+
+        // Assign the best vehicle to the order
+        if (bestVehicleIndex != -1)
+        {
+            Vehicle& assignedVehicle = vehicles[bestVehicleIndex];
+
+            std::cout << "Order " << order.id << " is assigned to Vehicle " << assignedVehicle.id << std::endl;
+
+            std::cout << "Delivering to: " << locationNames.at(order.deliveryLocation)
+                      << " (Location Index: " << order.deliveryLocation << ")" << std::endl;
+
+            // Update the vehicle's current load and location
+            assignedVehicle.currentLoad += order.weight;
+            assignedVehicle.currentLocation = order.deliveryLocation;
+        }
+        else
+        {
+            std::cout << "Order " << order.id << " could not be assigned to any vehicle!" << std::endl;
+        }
+
+        std::cout << std::endl;
+    }
+
+}
+
+
+// Function to log the vehicle location update
+void logVehicleLocationUpdate(const Vehicle& vehicle, int oldLocation, int newLocation, bool success)
+{
+
+    std::ofstream logFile("vehicle_location_update_log.txt", std::ios_base::app);
+    if (logFile.is_open())
+    {
+        std::time_t now = std::time(nullptr);
+        logFile << "Vehicle ID: " << vehicle.id
+                << " | Old Location: " << oldLocation
+                << " | New Location: " << newLocation
+                << " | Update Time: " << std::ctime(&now)
+                << " | Status: " << (success ? "Success" : "Failure") << "\n";
+        logFile.close();
+    }
+
+    else
+    {
+        std::cerr << "Unable to open log file for writing." << std::endl;
+    }
+
+}
+
+// Expanded updateVehicleLocation function
+void updateVehicleLocation(Vehicle& vehicle, int newLocation, const std::unordered_map<int, std::string>& locationNames)
+{
+
+    // Validate new location
+    if (locationNames.find(newLocation) == locationNames.end())
+    {
+        std::cerr << "Invalid new location. Update failed." << std::endl;
+        logVehicleLocationUpdate(vehicle, vehicle.currentLocation, newLocation, false);
+        return;
+    }
+
+    std::cout << "Vehicle " << vehicle.id << " moved from "
+              << locationNames.at(vehicle.currentLocation) << " to "
+              << locationNames.at(newLocation) << "." << std::endl;
+
+    int oldLocation = vehicle.currentLocation;
+    vehicle.currentLocation = newLocation;
+
+    // Log the location update
+    logVehicleLocationUpdate(vehicle, oldLocation, newLocation, true);
+
+}
+
+
+// Helper function to extract the integer part of the time in hours
+int extractHours(double timeInHours)
+{
+
+    return static_cast<int>(timeInHours);
+
+}
+
+
+// Helper function to calculate the fractional part of the time in hours
+double calculateFractionalPart(double timeInHours, int hours)
+{
+
+    return timeInHours - hours;
+
+}
+
+
+// Helper function to convert the fractional part to minutes
+int convertFractionalPartToMinutes(double fractionalPart)
+{
+
+    return static_cast<int>(round(fractionalPart * 60));
+
+}
+
+
+// Main function to convert time in hours to hours and minutes
+std::pair<int, int> convertTimeToHoursAndMinutes(double timeInHours)
+{
+
+    // Extract the integer part of the timeInHours to get the hours
+    int hours = extractHours(timeInHours);
+
+    // Calculate the fractional part of the timeInHours
+    double fractionalPart = calculateFractionalPart(timeInHours, hours);
+
+    // Convert the fractional part to minutes
+    int minutes = convertFractionalPartToMinutes(fractionalPart);
+
+    // Return the result as a pair of hours and minutes
+    return {hours, minutes};
+
+}
+
+
+// Function to convert time in hours to hours and minutes
+std::pair<int, int> convertTimeToHoursAndMinutes(double timeInHours);
+
+
+// Helper function to calculate time in hours from distance and speed
+double calculateTimeInHours(double distance, double speed)
+{
+
+    return distance / speed;
+
+}
+
+// Helper function to initialize the delivery time matrix
+std::vector<std::vector<std::pair<int, int>>> initializeDeliveryTimeMatrix(int size)
+{
+
+    return std::vector<std::vector<std::pair<int, int>>>(size, std::vector<std::pair<int, int>>(size, {0, 0}));
+
+}
+
+
+// Function to calculate the delivery time matrix
+std::vector<std::vector<std::pair<int, int>>> calculateDeliveryTime(const std::vector<std::vector<double>>& distanceMatrix, double averageSpeed)
+{
+
+    int n = distanceMatrix.size();
+
+    // Initialize the delivery time matrix
+    std::vector<std::vector<std::pair<int, int>>> deliveryTimeMatrix = initializeDeliveryTimeMatrix(n);
+
+    for (int i = 0; i < n; ++i)
+    {
+        for (int j = 0; j < n; ++j)
+        {
+            if (i != j && distanceMatrix[i][j] > 0)
+            {
+                // Calculate time in hours
+                double timeInHours = calculateTimeInHours(distanceMatrix[i][j], averageSpeed);
+
+                // Convert time in hours to hours and minutes
+                deliveryTimeMatrix[i][j] = convertTimeToHoursAndMinutes(timeInHours);
+            }
+        }
+    }
+
+    return deliveryTimeMatrix;
+
+}
+
+// Helper function to adjust speed for morning
+double adjustSpeedForMorning(double averageSpeed)
+{
+
+    return averageSpeed * 0.8; // Morning rush hour
+
+}
+
+// Helper function to adjust speed for afternoon
+double adjustSpeedForAfternoon(double averageSpeed)
+{
+
+    return averageSpeed * 0.9; // Afternoon traffic
+
+}
+
+
+// Helper function to adjust speed for evening
+double adjustSpeedForEvening(double averageSpeed)
+{
+
+    return averageSpeed * 0.7; // Evening peak
+
+}
+
+
+// Helper function to adjust speed for night
+double adjustSpeedForNight(double averageSpeed)
+{
+
+    return averageSpeed * 1.1; // Less traffic at night
+
+}
+
+
+// Main function to dynamically adjust speed based on time of day
+double adjustSpeedForTimeOfDay(double averageSpeed, const std::string& timeOfDay)
+{
+
+    if (timeOfDay == "morning")
+    {
+        return adjustSpeedForMorning(averageSpeed);
+    }
+    if (timeOfDay == "afternoon")
+    {
+        return adjustSpeedForAfternoon(averageSpeed);
+    }
+    if (timeOfDay == "evening")
+    {
+        return adjustSpeedForEvening(averageSpeed);
+    }
+    if (timeOfDay == "night")
+    {
+        return adjustSpeedForNight(averageSpeed);
+    }
+    return averageSpeed; // Default speed
+
+}
+
+
+// Function to dynamically adjust speed based on time of day
+double adjustSpeedForTimeOfDay(double averageSpeed, const std::string& timeOfDay);
+
+
+// Helper function to print adjusted speed
+void printAdjustedSpeed(double averageSpeed, const std::string& timeOfDay)
+{
+
+    double adjustedSpeed = adjustSpeedForTimeOfDay(averageSpeed, timeOfDay);
+    std::cout << "Adjusted Speed for ";
+    std::cout << timeOfDay;
+    std::cout << ": ";
+    std::cout << adjustedSpeed;
+    std::cout << " km/h";
+    std::cout << std::endl;
+
+}
+
+
+// Demonstration function to show usage of adjustSpeedForTimeOfDay
+void demonstrateAdjustSpeed()
+{
+
+    double averageSpeed = 60.0; // Average speed in km/h
+
+    // Demonstrate for morning
+    std::string timeOfDay = "morning";
+    printAdjustedSpeed(averageSpeed, timeOfDay);
+
+    // Demonstrate for afternoon
+    timeOfDay = "afternoon";
+    printAdjustedSpeed(averageSpeed, timeOfDay);
+
+    // Demonstrate for evening
+    timeOfDay = "evening";
+    printAdjustedSpeed(averageSpeed, timeOfDay);
+
+    // Demonstrate for night
+    timeOfDay = "night";
+    printAdjustedSpeed(averageSpeed, timeOfDay);
+
+    // Demonstrate for default time (invalid or unspecified)
+    timeOfDay = "midnight";
+    printAdjustedSpeed(averageSpeed, timeOfDay);
+
+}
+
+
+// Helper function to check if index is within matrix bounds
+bool isIndexWithinBounds(int index, int size)
+{
+
+    return index >= 0 && index < size;
+
+}
+
+
+// Helper function to print invalid index message
+void printInvalidIndexMessage(int index, int size)
+{
+
+    cout << "Invalid index: " << index << ". Please enter a valid index between 0 and " << size - 1 << "." << endl;
+
+}
+
+
+// Helper function to print same source and destination message
+void printSameSourceDestinationMessage()
+{
+
+    cout << "Source and destination must be different." << endl;
+
+}
+
+
+// Helper function to print no direct route message
+void printNoDirectRouteMessage()
+{
+
+    cout << "No direct route exists between the selected locations." << endl;
+
+}
+
+
+// Additional helper function to check if distance matrix is empty
+bool isDistanceMatrixEmpty(const vector<vector<double>>& distanceMatrix)
+{
+
+    return distanceMatrix.empty();
+
+}
+
+
+// Additional helper function to check if matrix is square
+bool isMatrixSquare(const vector<vector<double>>& distanceMatrix)
+{
+
+    for (const auto& row : distanceMatrix)
+    {
+        if (row.size() != distanceMatrix.size())
+        {
+            return false;
+        }
+    }
+    return true;
+
+}
+
+
+// Function to validate locations dynamically
+bool validateLocations(int source, int destination, const vector<vector<double>>& distanceMatrix)
+{
+
+    int size = distanceMatrix.size();
+
+    // Check if distance matrix is empty
+    if (isDistanceMatrixEmpty(distanceMatrix))
+    {
+        cout << "The distance matrix is empty. Please provide a valid distance matrix." << endl;
+        return false;
+    }
+
+    // Check if distance matrix is square
+    if (!isMatrixSquare(distanceMatrix))
+    {
+        cout << "The distance matrix is not square. Please provide a valid square matrix." << endl;
+        return false;
+    }
+
+    // Validate source index
+    if (!isIndexWithinBounds(source, size))
+    {
+        printInvalidIndexMessage(source, size);
+        return false;
+    }
+
+    // Validate destination index
+    if (!isIndexWithinBounds(destination, size))
+    {
+        printInvalidIndexMessage(destination, size);
+        return false;
+    }
+
+    // Check if source and destination are the same
+    if (source == destination)
+    {
+        printSameSourceDestinationMessage();
+        return false;
+    }
+
+    // Check if there is a direct route
+    if (distanceMatrix[source][destination] <= 0)
+    {
+        printNoDirectRouteMessage();
+        return false;
+    }
+
+    return true;
+
+}
+
+
+// Function to estimate fuel consumption
+double estimateFuelConsumption(double distance, double fuelEfficiency)
+{
+
+    // Validate distance
+    if (distance <= 0)
+    {
+        std::cerr << "Error: Distance must be greater than zero." << std::endl;
+        throw std::invalid_argument("Invalid distance");
+    }
+
+    // Validate fuel efficiency
+    if (fuelEfficiency <= 0)
+    {
+        std::cerr << "Error: Fuel efficiency must be greater than zero." << std::endl;
+        throw std::invalid_argument("Invalid fuel efficiency");
+    }
+
+    // Calculate fuel consumption
+    double fuelConsumption = distance / fuelEfficiency;
+
+    // Log the estimation process
+    std::cout << "Estimating fuel consumption..." << std::endl;
+    std::cout << "Distance: " << distance << " km" << std::endl;
+    std::cout << "Fuel Efficiency: " << fuelEfficiency << " km/l" << std::endl;
+    std::cout << "Estimated Fuel Consumption: " << fuelConsumption << " liters" << std::endl;
+
+    return fuelConsumption;
+
+}
+
+
+// Function to find the shortest path using Dijkstra's algorithm
+vector<int> dijkstra(int source, const vector<vector<double>>& distanceMatrix)
+{
+
+    int n = distanceMatrix.size();
+    vector<double> dist(n, numeric_limits<double>::max());
+    vector<int> prev(n, -1);
+    vector<bool> visited(n, false);
+
+    dist[source] = 0.0;
+
+    for (int i = 0; i < n; ++i)
+    {
+        int u = -1;
+
+        for (int v = 0; v < n; ++v)
+        {
+            if (!visited[v] && (u == -1 || dist[v] < dist[u]))
+            {
+                u = v;
+            }
+        }
+
+        if (dist[u] == numeric_limits<double>::max())
+        {
+            break;
+        }
+
+        visited[u] = true;
+
+        for (int v = 0; v < n; ++v)
+        {
+            if (distanceMatrix[u][v] > 0 && dist[u] + distanceMatrix[u][v] < dist[v])
+            {
+                dist[v] = dist[u] + distanceMatrix[u][v];
+                prev[v] = u;
+            }
+        }
+    }
+
+    return prev;
+
+}
+
+
+// Function to display optimal route and total distance
+void displayOptimalRoute(const vector<vector<double>>& distanceMatrix, int source, int destination)
+{
+
+    vector<int> prev = dijkstra(source, distanceMatrix);
+    vector<int> path;
+    int current = destination;
+
+    while (current != -1)
+    {
+        path.push_back(current);
+        current = prev[current];
+    }
+
+    reverse(path.begin(), path.end()); // Fix for the reverse error
+
+    cout << "Optimal Route: ";
+    for (int node : path)
+    {
+        cout << node << " ";
+    }
+    cout << "| Total Distance: " << distanceMatrix[source][destination] << " km" << endl;
+
+}
+
+
+// Function to calculate delivery cost
+double calculateDeliveryCost(double distance, const pair<int, int>& time, double costPerKm, double costPerHour)
+{
+
+    double distanceCost = distance * costPerKm;
+    double timeCost = (time.first + time.second / 60.0) * costPerHour;
+    return distanceCost + timeCost;
+
+}
+
+
+// Function to calculate and display route details
+void displayRouteDetails
+(
+    const vector<vector<double>>& distanceMatrix,
+    const vector<vector<pair<int, int>>>& timeMatrix,
+    double costPerKm,
+    double costPerHour,
+    double fuelEfficiency,
+    int source,
+    int destination
+)
+{
+
+    double distance = distanceMatrix[source][destination];
+    pair<int, int> time = timeMatrix[source][destination];
+    double routeCost = calculateDeliveryCost(distance, time, costPerKm, costPerHour);
+    double fuelUsed = estimateFuelConsumption(distance, fuelEfficiency);
+
+    cout << "Route Details:" << endl;
+    cout << "  Distance: " << distance << " km" << endl;
+    cout << "  Delivery Time: " << time.first << " hours and " << time.second << " minutes" << endl;
+    cout << "  Delivery Cost: " << fixed << setprecision(2) << routeCost << " currency units" << endl;
+    cout << "  Estimated Fuel Consumption: " << fixed << setprecision(2) << fuelUsed << " liters" << endl;
+
+}
+// Display main menu
+void displayMainMenu()
+{
+
+    std::cout << "\n--- Delivery Management System ---\n";
+    std::cout << "1. Calculate Shortest Path\n";
+    std::cout << "2. Calculate delivery time, cost, and fuel efficiency\n";
+    std::cout << "3. Vehicle and Order Assignment\n";
+    std::cout << "4. Exit\n";
+    std::cout << "Enter your choice: ";
+
+}
+
+// Function to find the shortest path from the source node using Dijkstra's algorithm
+void dijkstra(int source, std::vector<int>& distances, std::vector<bool>& visited, std::vector<int>& previous)
+{
+
+    using P = std::pair<int, int>;  // (distance, node) pair
+    std::priority_queue<P, std::vector<P>, std::greater<P>> pq;  // min-heap priority queue
+    distances[source] = 0;  // distance to the source is 0
+    pq.push({0, source});  // push source node with distance 0
+
+    while (!pq.empty())
+    {
+        int currentDistance = pq.top().first;  // current shortest distance
+        int currentNode = pq.top().second;  // current node
+        pq.pop();  // remove the node from the priority queue
+
+        if (visited[currentNode]) continue;  // if already visited, skip
+
+        visited[currentNode] = true;  // mark the current node as visited
+
+        // Explore neighbors
+        for (int i = 0; i < numLocations; ++i)
+        {
+            if (dist[currentNode][i] != 0 && distances[currentNode] + dist[currentNode][i] < distances[i])
+            {
+                distances[i] = distances[currentNode] + dist[currentNode][i];  // update distance
+                pq.push({distances[i], i});  // push neighbor with updated distance
+                previous[i] = currentNode;  // update the previous node for the path
+            }
+        }
+    }
+
+}
+
+
+// Function to reconstruct the path from source to destination
+std::vector<int> reconstructPath(int source, int destination, const std::vector<int>& previous)
+{
+
+    std::vector<int> path;
+
+    // Check if the destination is reachable
+    if (previous[destination] == -1 && source != destination)
+    {
+        std::cerr << "Error: No path found from " << source << " to " << destination << std::endl;
+        return path; // return an empty path
+    }
+
+    // Reconstruct the path
+    for (int at = destination; at != -1; at = previous[at])
+    {
+        path.push_back(at);
+    }
+
+    std::reverse(path.begin(), path.end());
+
+    // Check if the path starts at the source
+    if (path.front() != source)
+    {
+        std::cerr << "Error: Path reconstruction failed. Starting point does not match the source." << std::endl;
+        return std::vector<int>(); // return an empty path
+    }
+
+    return path;
+
+}
+
+
+// Function to save the path to a file
+void savePathToFile(const std::vector<int>& path, const std::map<int, std::string>& locationNames, const std::string& filename)
+{
+
+    std::ofstream outFile(filename);
+    if (outFile.is_open())
+    {
+        outFile << "Path: ";
+        for (size_t i = 0; i < path.size(); ++i)
+        {
+            outFile << locationNames.at(path[i]);
+            if (i != path.size() - 1) outFile << " -> ";
+        }
+        outFile << std::endl;
+        outFile.close();
+        std::cout << "\nPath saved to " << filename << std::endl;
+    }
+    else
+    {
+        std::cout << "\nUnable to open file " << filename << " for writing." << std::endl;
+    }
+
+}
+
+
+// Function to load the path from a file
+std::vector<int> loadPathFromFile(const std::string& filename)
+{
+
+    std::vector<int> path;
+    std::ifstream inFile(filename);
+
+    // Check if file opened successfully
+    if (!inFile.is_open())
+    {
+        std::cerr << "Error: Could not open file " << filename << std::endl;
+        return path;
+    }
+
+    std::string line;
+    while (std::getline(inFile, line))
+    {
+        // Process the line and extract location indices
+        size_t pos = 0;
+        while ((pos = line.find(" -> ")) != std::string::npos)
+        {
+            std::string loc = line.substr(0, pos);
+            // Find the location index by name (reverse lookup)
+            auto it = std::find_if(locationNames.begin(), locationNames.end(),
+                                   [&loc](const std::pair<int, std::string>& pair) { return pair.second == loc; });
+            if (it != locationNames.end())
+            {
+                path.push_back(it->first);
+            }
+            else
+            {
+                std::cerr << "Warning: Location '" << loc << "' not found in locationNames map" << std::endl;
+            }
+            line.erase(0, pos + 4);
+        }
+
+        // Handle the last location after the final " -> "
+        auto it = std::find_if(locationNames.begin(), locationNames.end(),
+                               [&line](const std::pair<int, std::string>& pair) { return pair.second == line; });
+        if (it != locationNames.end())
+        {
+            path.push_back(it->first);
+        }
+        else
+        {
+            std::cerr << "Warning: Location '" << line << "' not found in locationNames map" << std::endl;
+        }
+    }
+
+    inFile.close();
+    return path;
+
+}
+
+
+// Function to visualize the map and the path
+void visualizeMap(const std::vector<int>& path)
+{
+
+    if (path.empty())
+    {
+        std::cout << "\nNo path to visualize.\n";
+        return;
+    }
+
+    std::cout << "\nPath Visualization:\n";
+    int totalDistance = 0;
+
+    for (size_t i = 0; i < path.size(); ++i)
+    {
+        std::cout << locationNames[path[i]];
+        if (i != path.size() - 1)
+        {
+            int distance = dist[path[i]][path[i + 1]];
+            totalDistance += distance;
+            std::cout << " -> (" << distance << " km) -> ";
+        }
+    }
+
+    std::cout << "\nTotal Distance: " << totalDistance << " km" << std::endl;
+
+}
+
+
+
+
 // Main Integrated Module
 int main() {
     VendorManager vm;
@@ -1796,9 +2813,10 @@ int main() {
         cout << "2. Product Management\n";
         cout << "3. Customer Management\n";
         cout << "4. Order Management\n";
-                cout << "5. review Management\n";
+        cout << "5. review Management\n";
+        cout << "6. Efficient Delivery And Time Management\n";
 
-        cout << "6 Exit\n";
+        cout << "7. Exit\n";
 
         cout << "Enter your choice: ";
         cin >> mainChoice;
@@ -2078,15 +3096,282 @@ int main() {
                 break;
             }
 case 6:
-                cout << "Exiting program. Goodbye!\n";
+           {
+                // Populate location names for demonstration
+    locationNames =
+    {
+
+        {0, "Angol"},
+        {1, "Udyambag"},
+        {2, "Kamalapur"},
+        {3, "Desur"},
+        {4, "Channamma Circle"},
+        {5, "Bagalkot Galli"},
+        {6, "Gokak Galli"},
+        {7, "Gadag Galli"},
+        {8, "Jamboti Galli"},
+        {9, "Khanbhag"},
+        {10, "Tilakwadi"},
+        {11, "Malmaruti"},
+        {12, "APMC Yard"},
+        {13, "Fort Galli"},
+        {14, "Gandhi Bazar"},
+        {15, "Shivaji Nagar"},
+        {16, "Venkatapur"},
+        {17, "Ambedkar Nagar"},
+        {18, "Samyukta Nagar"},
+        {19, "RPD Cross"},
+        {20, "Vidhya Nagar"},
+        {21, "Azad Nagar"},
+        {22, "Desai Galli"},
+        {23, "Jayanagar"},
+        {24, "Anand Nagar"},
+        {25, "Ramteerth Nagar"},
+        {26, "Mahalaxmi Nagar"},
+        {27, "Vidhyanagar"},
+        {28, "Katipalla"},
+        {29, "Murarji Peth"}
+
+    };
+
+    // Initialize the distance matrix with some values (example)
+    dist =
+    {
+
+        {0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120, 130, 140, 150, 160, 170, 180, 190, 200, 210, 220, 230, 240, 250, 260, 270, 280, 290},
+        {10, 0, 15, 25, 35, 45, 55, 65, 75, 85, 95, 105, 115, 125, 135, 145, 155, 165, 175, 185, 195, 205, 215, 225, 235, 245, 255, 265, 275, 285},
+        {20, 15, 0, 17, 27, 37, 47, 57, 67, 77, 87, 97, 107, 117, 127, 137, 147, 157, 167, 177, 187, 197, 207, 217, 227, 237, 247, 257, 267, 277},
+        {30, 25, 17, 0, 22, 32, 42, 52, 62, 72, 82, 92, 102, 112, 122, 132, 142, 152, 162, 172, 182, 192, 202, 212, 222, 232, 242, 252, 262, 272},
+        {40, 35, 27, 22, 0, 19, 29, 39, 49, 59, 69, 79, 89, 99, 109, 119, 129, 139, 149, 159, 169, 179, 189, 199, 209, 219, 229, 239, 249, 259},
+        {50, 45, 37, 32, 19, 0, 24, 34, 44, 54, 64, 74, 84, 94, 104, 114, 124, 134, 144, 154, 164, 174, 184, 194, 204, 214, 224, 234, 244, 254},
+        {60, 55, 47, 42, 29, 24, 0, 26, 36, 46, 56, 66, 76, 86, 96, 106, 116, 126, 136, 146, 156, 166, 176, 186, 196, 206, 216, 226, 236, 246},
+        {70, 65, 57, 52, 39, 34, 26, 0, 28, 38, 48, 58, 68, 78, 88, 98, 108, 118, 128, 138, 148, 158, 168, 178, 188, 198, 208, 218, 228, 238},
+        {80, 75, 67, 62, 49, 44, 36, 28, 0, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120, 130, 140, 150, 160, 170, 180, 190, 200, 210, 220, 230},
+        {90, 85, 77, 72, 59, 54, 46, 38, 30, 0, 33, 43, 53, 63, 73, 83, 93, 103, 113, 123, 133, 143, 153, 163, 173, 183, 193, 203, 213, 223},
+        {100, 95, 87, 82, 69, 64, 56, 48, 40, 33, 0, 36, 46, 56, 66, 76, 86, 96, 106, 116, 126, 136, 146, 156, 166, 176, 186, 196, 206, 216},
+        {110, 105, 97, 92, 79, 74, 66, 58, 50, 43, 36, 0, 39, 49, 59, 69, 79, 89, 99, 109, 119, 129, 139, 149, 159, 169, 179, 189, 199, 209},
+        {120, 115, 107, 102, 89, 84, 76, 68, 60, 53, 46, 39, 0, 52, 62, 72, 82, 92, 102, 112, 122, 132, 142, 152, 162, 172, 182, 192, 202, 212},
+        {130, 125, 117, 112, 99, 94, 86, 78, 70, 63, 56, 49, 52, 0, 65, 75, 85, 95, 105, 115, 125, 135, 145, 155, 165, 175, 185, 195, 205, 215},
+        {140, 135, 127, 122, 109, 104, 96, 88, 80, 73, 66, 59, 62, 65, 0, 85, 95, 105, 115, 125, 135, 145, 155, 165, 175, 185, 195, 205, 215, 225},
+        {150, 145, 137, 132, 119, 114, 106, 98, 90, 83, 76, 69, 72, 75, 85, 0, 105, 115, 125, 135, 145, 155, 165, 175, 185, 195, 205, 215, 225, 235},
+        {160, 155, 147, 142, 129, 124, 116, 108, 100, 93, 86, 79, 82, 85, 95, 105, 0, 125, 135, 145, 155, 165, 175, 185, 195, 205, 215, 225, 235, 245},
+        {170, 165, 157, 152, 139, 134, 126, 118, 110, 103, 96, 89, 92, 95, 105, 115, 125, 0, 145, 155, 165, 175, 185, 195, 205, 215, 225, 235, 245, 255},
+        {180, 175, 167, 162, 149, 144, 136, 128, 120, 113, 106, 99, 102, 105, 115, 125, 135, 145, 0, 165, 175, 185, 195, 205, 215, 225, 235, 245, 255, 265},
+        {190, 185, 177, 172, 159, 154, 146, 138, 130, 123, 116, 109, 112, 115, 125, 135, 145, 155, 165, 0, 185, 195, 205, 215, 225, 235, 245, 255, 265, 275},
+        {200, 195, 187, 182, 169, 164, 156, 148, 140, 133, 126, 119, 122, 125, 135, 145, 155, 165, 175, 185, 0, 205, 215, 225, 235, 245, 255, 265, 275, 285},
+        {210, 205, 197, 192, 179, 174, 166, 158, 150, 143, 136, 129, 132, 135, 145, 155, 165, 175, 185, 195, 205, 0, 225, 235, 245, 255, 265, 275, 285, 295},
+        {220, 215, 207, 202, 189, 184, 176, 168, 160, 153, 146, 139, 142, 145, 155, 165, 175, 185, 195, 205, 215, 225, 0, 245, 255, 265, 275, 285, 295, 305},
+        {230, 225, 217, 212, 199, 194, 186, 178, 170, 163, 156, 149, 152, 155, 165, 175, 185, 195, 205, 215, 225, 235, 245, 0, 265, 275, 285, 295, 305, 315},
+        {240, 235, 227, 222, 209, 204, 196, 188, 180, 173, 166, 159, 162, 165, 175, 185, 195, 205, 215, 225, 235, 245, 255, 265, 0, 285, 295, 305, 315, 325},
+        {250, 245, 237, 232, 219, 214, 206, 198, 190, 183, 176, 169, 172, 175, 185, 195, 205, 215, 225, 235, 245, 255, 265, 275, 285, 0, 305, 315, 325, 335},
+        {260, 255, 247, 242, 229, 224, 216, 208, 200, 193, 186, 179, 182, 185, 195, 205, 215, 225, 235, 245, 255, 265, 275, 285, 295, 305, 0, 325, 335, 345},
+        {270, 265, 257, 252, 239, 234, 226, 218, 210, 203, 196, 189, 192, 195, 205, 215, 225, 235, 245, 255, 265, 275, 285, 295, 305, 315, 325, 0, 345, 355},
+        {280, 275, 267, 262, 249, 244, 236, 228, 220, 213, 206, 199, 202, 205, 215, 225, 235, 245, 255, 265, 275, 285, 295, 305, 315, 325, 335, 345, 0, 365},
+        {290, 285, 277, 272, 259, 254, 246, 238, 230, 223, 216, 209, 212, 215, 225, 235, 245, 255, 265, 275, 285, 295, 305, 315, 325, 335, 345, 355, 365, 0}
+
+    };
+
+    // Convert distance matrix to double type
+    std::vector<std::vector<double>> distanceMatrix(dist.begin(), dist.end());
+
+   int mainChoice; // Declare mainChoice
+    while (mainChoice!=4)
+    {
+
+        displayMainMenu();
+        std::cin >> mainChoice;
+
+        switch (mainChoice)
+        {
+            case 1: // Location and Path Management
+            {
+                int source, destination;
+
+                // Display all locations
+                std::cout << "\nLocations:\n";
+                for (const auto& pair : locationNames)
+                {
+                    std::cout << pair.first << ". " << pair.second << std::endl;
+                }
+
+                // Input validation for source
+                while (true)
+                {
+                    std::cout << "\nEnter the source location index (0-29): ";
+                    std::cin >> source;
+                    if (source >= 0 && source < locationNames.size()) break;
+                    std::cout << "Invalid input. Please enter a number between 0 and 29." << std::endl;
+                }
+
+                // Input validation for destination
+                while (true)
+                {
+                    std::cout << "Enter the destination location index (0-29): ";
+                    std::cin >> destination;
+                    if (destination >= 0 && destination < locationNames.size()) break;
+                    std::cout << "Invalid input. Please enter a number between 0 and 29." << std::endl;
+                }
+
+                std::vector<int> distances(locationNames.size(), std::numeric_limits<int>::max());  // initialize distances with max value
+                std::vector<bool> visited(locationNames.size(), false);  // initialize visited array
+                std::vector<int> previous(locationNames.size(), -1);  // track the previous node in the path
+
+                // Apply Dijkstra's algorithm from source node
+                dijkstra(source, distances, visited, previous);
+
+                // Display the shortest distance from source to destination
+                std::cout << "\nShortest distance from location " << source << " (" << locationNames[source]
+                          << ") to location " << destination << " (" << locationNames[destination] << ") is: "
+                          << distances[destination] << " km" << std::endl;
+
+                // Reconstruct and display the path
+                std::vector<int> path = reconstructPath(source, destination, previous);
+
+                std::cout << "Path: ";
+                for (size_t i = 0; i < path.size(); ++i)
+                {
+                    std::cout << locationNames[path[i]];
+                    if (i != path.size() - 1) std::cout << " -> ";
+                }
+                std::cout << std::endl;
+
+                // Save the path to a file
+                savePathToFile(path, unorderedLocationNames, "path.txt");
+
+                // Load the path from a file (for demonstration purposes)
+                std::vector<int> loadedPath = loadPathFromFile("path.txt");
+                if (!loadedPath.empty())
+                {
+                    std::cout << "Loaded Path: ";
+                    for (size_t i = 0; i < loadedPath.size(); ++i)
+                    {
+                        std::cout << locationNames[loadedPath[i]];
+                        if (i != loadedPath.size() - 1) std::cout << " -> ";
+                    }
+                    std::cout << std::endl;
+                }
+
+                // Visualize the map and the path
+                visualizeMap(path);
                 break;
-default:
-                cout << "Invalid choice! Please try again.\n";
+            }
+
+            case 2: // Delivery Management
+            {
+                int source, destination;
+                std::string timeOfDay;
+                double averageSpeed, costPerKm, costPerHour, fuelEfficiency;
+
+                // Display all locations
+                std::cout << "\nAvailable Locations:\n";
+                for (const auto& location : locationNames)
+                {
+                    std::cout << location.first << ": " << location.second << std::endl;
+                }
+
+                std::cout << "Enter source location index (0-29): ";
+                std::cin >> source;
+                std::cout << "Enter destination location index (0-29): ";
+                std::cin >> destination;
+                std::cout << "Enter average speed (km/h): ";
+                std::cin >> averageSpeed;
+                std::cout << "Enter time of day (morning, afternoon, evening): ";
+                std::cin >> timeOfDay;
+                cin.ignore(10000, '\n');
+                std::cout << "Enter cost per km:\n ";
+                std::cin >> costPerKm;
+                cin.ignore(10000, '\n');
+                std::cout << "Enter cost per hour:\n ";
+                std::cin >> costPerHour;
+                cin.ignore(10000, '\n');
+                std::cout << "Enter fuel efficiency (km/l): \n";
+                std::cin >> fuelEfficiency;
+
+                if (!validateLocations(source, destination, dist))
+                {
+                    return 1;
+                }
+
+                double adjustedSpeed = adjustSpeedForTimeOfDay(averageSpeed, timeOfDay);
+                std::vector<std::vector<std::pair<int, int>>> deliveryTimeMatrix = calculateDeliveryTime(dist, adjustedSpeed);
+
+                displayOptimalRoute(dist, source, destination);
+                displayRouteDetails(dist, deliveryTimeMatrix, costPerKm, costPerHour, fuelEfficiency, source, destination);
+
+                break;
+            }
+
+            case 3: // Vehicle and Order Assignment
+            {
+            // Display all locations
+            displayLocations(unorderedLocationNames);
+
+            // Input number of vehicles and their details
+            int numVehicles;
+            std::cout << "Enter the number of vehicles: ";
+            std::cin >> numVehicles;
+
+            std::vector<Vehicle> vehicles(numVehicles);
+            for (int i = 0; i < numVehicles; ++i)
+            {
+                vehicles[i].id = i + 1;
+                std::cout << "Enter details for Vehicle " << vehicles[i].id
+                          << " (currentLocation maxCapacity currentLoad): ";
+                std::cin >> vehicles[i].currentLocation
+                         >> vehicles[i].maxCapacity
+                         >> vehicles[i].currentLoad;
+            }
+
+            std::cout << std::endl;
+
+            // Input number of orders and their details
+            int numOrders;
+            std::cout << "Enter the number of orders: ";
+            std::cin >> numOrders;
+
+            std::vector<Order2> orders(numOrders);
+            for (int i = 0; i < numOrders; ++i)
+            {
+                orders[i].id = i + 1;
+                std::cout << "Enter details for Order " << orders[i].id
+                          << " (deliveryLocation weight): ";
+                std::cin >> orders[i].deliveryLocation
+                         >> orders[i].weight;
+            }
+
+            std::cout << "\nAssigning Vehicles to Orders:\n";
+            std::cout << "==============================\n";
+
+            // Assign vehicles to orders
+            assignVehiclesToOrders(vehicles, orders, dist, unorderedLocationNames);
+
+            // Reset a specific vehicle for demonstration
+            resetVehicle(vehicles[0], 0);
+            std::cout << "\nVehicle 1 has been reset to initial location and load.\n";
+
+            // Update location of a specific vehicle
+            updateVehicleLocation(vehicles[0], 2, unorderedLocationNames);
+
+            break;
+            }
+
+            case 4: // Exit
+                std::cout << "Exiting...\n";
+                exit;
+
+
         }
-    }while (mainChoice != 6); // Exit program on choice 5
+
+    }
+
+           }
+case 7:
+                cout <<"Returning to Main Menu\n"                                                                                                                                                                                                                                   ;
+                break;
+
+        }
+    }while (mainChoice != 7); // Exit program on choice 5
 
     return 0;
 }
- </code></pre>
-</body>
-</html>
+
