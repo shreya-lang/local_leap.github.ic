@@ -1,0 +1,2049 @@
+
+#include <iostream>
+#include <vector>
+#include <string>
+#include <fstream>
+#include <sstream>
+#include <iomanip>
+#include <chrono>
+#include <limits>
+#include <algorithm>
+#include <cctype>
+#include <ctime>
+#include <conio.h>
+using namespace std;
+
+// Enum for Order Status
+enum class OrderStatus {
+    PENDING,
+    CONFIRMED,
+    SHIPPED,
+    DELIVERED,
+    CANCELLED
+};
+enum ReviewStatus { PENDING, IN_PROGRESS, COMPLETED, REJECTED };
+enum UserRole { ADMIN, REVIEWER, SUBMITTER, GUEST };
+// Structure to store order items
+struct OrderItem {
+    string productId;
+    string productName;
+    string vendorId;
+    int quantity;
+    float unitPrice;
+    float totalPrice;
+};
+
+// Structure to store order information
+struct Order {
+    string orderId;
+    int customerId;
+    string customerName;
+    vector<OrderItem> items;
+    float totalAmount;
+    OrderStatus status;
+    string orderDate;
+    string deliveryAddress;
+    string paymentMethod;
+    bool isPaid;
+};
+
+// Vendor structure to hold vendor data
+struct Vendor {
+    string id;
+    string name;
+    string contact;
+    string businessName;
+    string location;
+    string password; // New field for storing vendor password
+};
+
+// Product structure
+struct Product {
+    string id;
+    string name;
+    string category;
+    float price;
+    int stock;
+    string vendorId; // Associate with Vendor ID
+
+};
+
+// Structure to store customer details
+struct Customer {
+    int id;
+    string name;
+    string email;
+    string phone;
+    string password;
+     string location;
+
+
+};
+
+// Helper function for hidden password input
+string getHiddenPassword() {
+    string password;
+#ifdef _WIN32
+    char ch;
+    while ((ch = _getch()) != '\r') {
+        if (ch == '\b' && !password.empty()) {
+            password.pop_back();
+            cout << "\b \b";
+        } else if (isprint(ch)) {
+            password += ch;
+            cout << "*";
+        }
+    }
+#else
+    struct termios oldt, newt;
+    tcgetattr(STDIN_FILENO, &oldt);
+    newt = oldt;
+    newt.c_lflag &= ~(ECHO);
+    tcsetattr(STDIN_FILENO, TCSANOW, &newt);
+    getline(cin, password);
+    tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
+    cout << endl;
+#endif
+    return password;
+}
+
+// VendorManager class to handle operations
+
+class VendorManager {
+private:
+    vector<Vendor> vendors; // In-memory storage of vendors
+    const string vendorFile = "vendors.txt"; // File to persist data
+
+    // Helper function to save vendors to file
+    void saveToFile() {
+        ofstream file(vendorFile);
+        if (file.is_open()) {
+            for (const auto &vendor : vendors) {
+                file << vendor.id << "," << vendor.name << "," << vendor.contact << ","
+                     << vendor.businessName << "," << vendor.location << ","
+                     << vendor.password << "\n";
+            }
+            file.close();
+        } else {
+            cout << "Error: Unable to save data to file!\n";
+        }
+    }
+
+    // Helper function to load vendors from file
+    void loadFromFile() {
+        vendors.clear(); // Clear existing data
+        ifstream file(vendorFile);
+        string line;
+        if (file.is_open()) {
+            while (getline(file, line)) {
+                size_t pos = 0;
+                Vendor v;
+                vector<string> fields;
+
+                while ((pos = line.find(",")) != string::npos) {
+                    fields.push_back(line.substr(0, pos));
+                    line.erase(0, pos + 1);
+                }
+                fields.push_back(line); // Last field
+
+                if (fields.size() == 6) {
+                    v.id = fields[0];
+                    v.name = fields[1];
+                    v.contact = fields[2];
+                    v.businessName = fields[3];
+                    v.location = fields[4];
+                    v.password = fields[5];
+                    vendors.push_back(v);
+                }
+            }
+            file.close();
+        }
+    }
+
+    // Helper function for input validation
+    bool isNumber(const string &s) {
+        return !s.empty() && all_of(s.begin(), s.end(), ::isdigit);
+    }
+
+    bool isAlphabetic(const string &s) {
+        return !s.empty() && all_of(s.begin(), s.end(), ::isalpha);
+    }
+
+public:
+    VendorManager() {
+        loadFromFile();
+    }
+
+    // Add a new vendor
+    void addVendor() {
+        Vendor v;
+        cout << "Enter Vendor ID (numbers only): ";
+        cin >> v.id;
+        while (!isNumber(v.id)) {
+            cout << "Invalid ID. Please enter numbers only: ";
+            cin >> v.id;
+        }
+
+        cout << "Enter Vendor Name (alphabets only): ";
+        cin.ignore();
+        getline(cin, v.name);
+        while (!isAlphabetic(v.name)) {
+            cout << "Invalid Name. Please enter alphabets only: ";
+            getline(cin, v.name);
+        }
+
+        cout << "Enter Contact Number (numbers only): ";
+        cin >> v.contact;
+        while (!isNumber(v.contact)) {
+            cout << "Invalid Contact. Please enter numbers only: ";
+            cin >> v.contact;
+        }
+
+        cout << "Enter Business Name (alphabets only): ";
+        cin.ignore();
+        getline(cin, v.businessName);
+        while (!isAlphabetic(v.businessName)) {
+            cout << "Invalid Business Name. Please enter alphabets only: ";
+            getline(cin, v.businessName);
+        }
+
+        cout << "Enter Location: ";
+        getline(cin, v.location);
+
+        cout << "Set a Password (input hidden): ";
+        v.password = getHiddenPassword();
+
+        vendors.push_back(v);
+        saveToFile();
+
+        cout << "Vendor added successfully!\n";
+    }
+
+    // View all vendors
+    void viewVendors() {
+        if (vendors.empty()) {
+            cout << "No vendors registered yet.\n";
+            return;
+        }
+        cout << left << setw(10) << "ID"
+             << setw(20) << "Name"
+             << setw(15) << "Contact"
+             << setw(20) << "Business Name"
+             << setw(15) << "Location" << "\n";
+        cout << string(80, '-') << "\n";
+        for (const auto &v : vendors) {
+            cout << left << setw(10) << v.id
+                 << setw(20) << v.name
+                 << setw(15) << v.contact
+                 << setw(20) << v.businessName
+                 << setw(15) << v.location << "\n";
+        }
+    }
+
+    // Login vendor
+    void loginVendor() {
+        string id, password;
+        cout << "Enter Vendor ID (numbers only): ";
+        cin >> id;
+        while (!isNumber(id)) {
+            cout << "Invalid ID. Please enter numbers only: ";
+            cin >> id;
+        }
+        cout << "Enter Password: ";
+        password = getHiddenPassword();
+
+        for (const auto &v : vendors) {
+            if (v.id == id && v.password == password) {
+                cout << "Login successful! Welcome, " << v.name << ".\n";
+                return;
+            }
+        }
+        cout << "Invalid ID or Password. Login failed.\n";
+    }
+
+    // Edit vendor details
+    void editVendor() {
+        string id;
+        cout << "Enter Vendor ID (numbers only) to edit: ";
+        cin >> id;
+        while (!isNumber(id)) {
+            cout << "Invalid ID. Please enter numbers only: ";
+            cin >> id;
+        }
+        bool found = false;
+
+        for (auto &v : vendors) {
+            if (v.id == id) {
+                found = true;
+                cout << "Editing details for Vendor ID: " << id << "\n";
+                cout << "Enter new Vendor Name (alphabets only): ";
+                cin.ignore();
+                getline(cin, v.name);
+                while (!isAlphabetic(v.name)) {
+                    cout << "Invalid Name. Please enter alphabets only: ";
+                    getline(cin, v.name);
+                }
+
+                cout << "Enter new Contact Number (numbers only): ";
+                cin >> v.contact;
+                while (!isNumber(v.contact)) {
+                    cout << "Invalid Contact. Please enter numbers only: ";
+                    cin >> v.contact;
+                }
+
+                cout << "Enter new Business Name (alphabets only): ";
+                cin.ignore();
+                getline(cin, v.businessName);
+                while (!isAlphabetic(v.businessName)) {
+                    cout << "Invalid Business Name. Please enter alphabets only: ";
+                    getline(cin, v.businessName);
+                }
+
+                cout << "Enter new Location: ";
+                getline(cin, v.location);
+
+                cout << "Update Password (input hidden): ";
+                v.password = getHiddenPassword();
+
+                saveToFile();
+
+                cout << "Vendor details updated successfully!\n";
+                break;
+            }
+        }
+
+        if (!found) {
+            cout << "Vendor with ID " << id << " not found.\n";
+        }
+    }
+
+    // Delete a vendor
+    void deleteVendor() {
+        string id;
+        cout << "Enter Vendor ID (numbers only) to delete: ";
+        cin >> id;
+        while (!isNumber(id)) {
+            cout << "Invalid ID. Please enter numbers only: ";
+            cin >> id;
+        }
+        bool found = false;
+
+        for (auto it = vendors.begin(); it != vendors.end(); ++it) {
+            if (it->id == id) {
+                found = true;
+                vendors.erase(it);
+                saveToFile();
+                cout << "Vendor deleted successfully!\n";
+                break;
+            }
+        }
+
+        if (!found) {
+            cout << "Vendor with ID " << id << " not found.\n";
+        }
+    }
+};
+
+
+// ProductManager class to handle product operations
+class ProductManager {
+private:
+    const string productFile = "products.txt";
+
+    // Hidden password input function
+    string getHiddenPassword() {
+        string password;
+#ifdef _WIN32
+        char ch;
+        while ((ch = _getch()) != '\r') {
+            if (ch == '\b' && !password.empty()) {
+                password.pop_back();
+                cout << "\b \b";
+            } else if (isprint(ch)) {
+                password += ch;
+                cout << "*";
+            }
+        }
+#else
+        struct termios oldt, newt;
+        tcgetattr(STDIN_FILENO, &oldt);
+        newt = oldt;
+        newt.c_lflag &= ~(ECHO);
+        tcsetattr(STDIN_FILENO, TCSANOW, &newt);
+        getline(cin, password);
+        tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
+        cout << endl;
+#endif
+        return password;
+    }
+
+    // Function to check if a string contains only digits
+    bool isNumber(const string &str) {
+        return all_of(str.begin(), str.end(), ::isdigit);
+    }
+
+    // Function to get the next product ID
+    string getNextProductId() {
+        ifstream file(productFile);
+        string line;
+        string lastId = "1"; // Default starting ID
+
+        if (file.is_open()) {
+            while (getline(file, line)) {
+                size_t pos = line.find(',');
+                lastId = line.substr(0, pos); // Get the last product ID
+            }
+        }
+        file.close();
+
+        int nextId = stoi(lastId) + 1; // Increment the ID
+        return to_string(nextId);
+    }
+
+    // Function to check vendor login
+    bool vendorLogin(string &vendorId) {
+        string password;
+        cout << "Enter Vendor ID (numbers only): ";
+        cin >> vendorId;
+        while (!isNumber(vendorId)) {
+            cout << "Invalid input. Enter numbers only: ";
+            cin >> vendorId;
+        }
+        cout << "Enter Password: ";
+        password = getHiddenPassword();
+
+        ifstream file("vendors.txt");
+        string line;
+        if (file.is_open()) {
+            while (getline(file, line)) {
+                size_t pos = line.find(',');
+                string storedId = line.substr(0, pos);
+                line.erase(0, pos + 1);
+
+                for (int i = 0; i < 4; ++i) {
+                    pos = line.find(',');
+                    line.erase(0, pos + 1);
+                }
+                string storedPassword = line;
+
+                if (vendorId == storedId && password == storedPassword) {
+                    return true;
+                }
+            }
+        }
+        cout << "Invalid ID or Password. Login failed.\n";
+        return false;
+    }
+
+public:
+    // Function to add a new product
+    void addProduct() {
+        string vendorId;
+        if (!vendorLogin(vendorId)) {
+            return;
+        }
+
+        Product p;
+        do {
+            p.id = getNextProductId(); // Generate the next product ID
+
+            cout << "Auto-generated Product ID: " << p.id << endl;
+            cout << "Enter Product Name (alphabets only): ";
+            cin.ignore();
+            getline(cin, p.name);
+            while (!all_of(p.name.begin(), p.name.end(), ::isalpha)) {
+                cout << "Invalid input. Enter alphabets only: ";
+                getline(cin, p.name);
+            }
+
+            cout << "Enter Product Category (alphabets only): ";
+            getline(cin, p.category);
+            while (!all_of(p.category.begin(), p.category.end(), ::isalpha)) {
+                cout << "Invalid input. Enter alphabets only: ";
+                getline(cin, p.category);
+            }
+
+            cout << "Enter Product Price: ";
+            cin >> p.price;
+            cout << "Enter Stock Quantity: ";
+            cin >> p.stock;
+            p.vendorId = vendorId;
+
+            // Save to file
+            ofstream file(productFile, ios::app);
+            if (file.is_open()) {
+                file << p.id << "," << p.name << "," << p.category << "," << p.price << "," << p.stock << "," << p.vendorId << "\n";
+                cout << "Product added successfully!\n";
+            } else {
+                cout << "Error opening file!\n";
+            }
+            file.close();
+
+            cout << "Do you want to add another product? (yes/no): ";
+            string choice;
+            cin >> choice;
+            if (choice != "yes") {
+                break;
+            }
+
+        } while (true);
+    }
+
+    // Function to display products for a specific vendor
+    void displayProducts() {
+        string vendorId;
+        if (!vendorLogin(vendorId)) {
+            return;
+        }
+
+        ifstream file(productFile);
+        string line;
+        bool found = false;
+
+        if (file.is_open()) {
+            cout << "\nProducts for Vendor ID: " << vendorId << "\n";
+            cout << left << setw(10) << "ID" << setw(20) << "Name" << setw(20) << "Category" << setw(10) << "Price" << setw(10) << "Stock" << endl;
+            cout << string(70, '-') << endl;
+
+            while (getline(file, line)) {
+                size_t pos = 0;
+                vector<string> fields;
+                while ((pos = line.find(',')) != string::npos) {
+                    fields.push_back(line.substr(0, pos));
+                    line.erase(0, pos + 1);
+                }
+                fields.push_back(line); // Last field
+
+                if (fields.size() == 6 && fields[5] == vendorId) {
+                    cout << left << setw(10) << fields[0] << setw(20) << fields[1] << setw(20) << fields[2] << setw(10) << fields[3] << setw(10) << fields[4] << endl;
+                    found = true;
+                }
+            }
+
+            if (!found) {
+                cout << "No products found for this vendor.\n";
+            }
+        } else {
+            cout << "Error opening file!\n";
+        }
+        file.close();
+    }
+
+    // Function to update a product
+    void updateProduct() {
+        string vendorId;
+        if (!vendorLogin(vendorId)) {
+            return;
+        }
+
+        string productId;
+        cout << "Enter Product ID to update: ";
+        cin >> productId;
+
+        ifstream file(productFile);
+        ofstream tempFile("temp.txt");
+        string line;
+        bool found = false;
+
+        if (file.is_open() && tempFile.is_open()) {
+            while (getline(file, line)) {
+                size_t pos = 0;
+                vector<string> fields;
+                while ((pos = line.find(',')) != string::npos) {
+                    fields.push_back(line.substr(0, pos));
+                    line.erase(0, pos + 1);
+                }
+                fields.push_back(line); // Last field
+
+                if (fields.size() == 6 && fields[0] == productId && fields[5] == vendorId) {
+                    found = true;
+                    Product p;
+                    p.id = productId;
+
+                    cout << "Enter New Product Name (alphabets only): ";
+                    cin.ignore();
+                    getline(cin, p.name);
+                    while (!all_of(p.name.begin(), p.name.end(), ::isalpha)) {
+                        cout << "Invalid input. Enter alphabets only: ";
+                        getline(cin, p.name);
+                    }
+
+                    cout << "Enter New Product Category (alphabets only): ";
+                    getline(cin, p.category);
+                    while (!all_of(p.category.begin(), p.category.end(), ::isalpha)) {
+                        cout << "Invalid input. Enter alphabets only: ";
+                        getline(cin, p.category);
+                    }
+
+                    cout << "Enter New Product Price: ";
+                    cin >> p.price;
+                    cout << "Enter New Stock Quantity: ";
+                    cin >> p.stock;
+                    p.vendorId = vendorId;
+
+                    tempFile << p.id << "," << p.name << "," << p.category << "," << p.price << "," << p.stock << "," << p.vendorId << "\n";
+                    cout << "Product updated successfully!\n";
+                } else {
+                    tempFile << line << "\n";
+                }
+            }
+        } else {
+            cout << "Error opening files!\n";
+        }
+        file.close();
+        tempFile.close();
+
+        // Replace original file with updated file
+        remove(productFile.c_str());
+        rename("temp.txt", productFile.c_str());
+
+        if (!found) {
+            cout << "Product ID not found or you don't have permission to edit it.\n";
+        }
+    }
+void deleteProduct() {
+    string vendorId;
+    if (!vendorLogin(vendorId)) {
+        return;
+    }
+
+    string productId;
+    cout << "Enter Product ID to delete: ";
+    cin >> productId;
+
+    ifstream file("products.txt");
+    ofstream tempFile("temp.txt");
+    string line;
+    bool found = false;
+
+    if (file.is_open() && tempFile.is_open()) {
+        while (getline(file, line)) {
+            size_t pos = 0;
+            vector<string> fields;
+            while ((pos = line.find(',')) != string::npos) {
+                fields.push_back(line.substr(0, pos));
+                line.erase(0, pos + 1);
+            }
+            fields.push_back(line); // Last field
+
+            if (fields.size() == 6 && fields[0] == productId && fields[5] == vendorId) {
+                found = true;
+                cout << "Product deleted successfully!\n";
+            } else {
+                tempFile << line << "\n";
+            }
+        }
+    } else {
+        cout << "Error opening files!\n";
+    }
+    file.close();
+    tempFile.close();
+
+    // Replace original file with updated file
+    remove("products.txt");
+    rename("temp.txt", "products.txt");
+
+    if (!found) {
+        cout << "Product ID not found or you don't have permission to delete it.\n";
+    }
+}};
+
+// CustomerManagement class to handle customer operations
+
+class CustomerManagement {
+private:
+    vector<Customer> customers;
+    int nextCustomerId;
+    const string customerFile = "customers.txt";
+    int loggedInCustomerId;
+
+    // Helper function to load customer data
+    void loadCustomers() {
+        ifstream file(customerFile);
+        if (!file.is_open()) {
+            return; // No file to load from
+        }
+
+        string line;
+        while (getline(file, line)) {
+            stringstream ss(line);
+            Customer customer;
+            string idStr;
+
+            getline(ss, idStr, ',');
+            getline(ss, customer.name, ',');
+            getline(ss, customer.email, ',');
+            getline(ss, customer.phone, ',');
+            getline(ss, customer.password, ',');
+            getline(ss, customer.location, ','); // Load location
+
+            customer.id = stoi(idStr);
+            customers.push_back(customer);
+            nextCustomerId = max(nextCustomerId, customer.id + 1);
+        }
+        file.close();
+    }
+
+    // Helper function to save customer data
+    void saveCustomers() {
+        ofstream file(customerFile, ios::trunc);
+        if (!file.is_open()) {
+            cout << "Error saving customers to file." << endl;
+            return;
+        }
+
+        for (const auto& customer : customers) {
+            file << customer.id << "," << customer.name << "," << customer.email << "," << customer.phone << "," << customer.password << "," << customer.location << "\n";
+        }
+
+        file.close();
+    }
+
+    // Function to validate and get a valid phone number
+    string getValidPhoneNumber() {
+        string phone;
+        do {
+            cout << "Enter customer phone (10 digits): ";
+            cin >> phone;
+            if (phone.length() != 10 || !isNumber(phone)) {
+                cout << "Invalid phone number. Please enter exactly 10 digits.\n";
+            }
+        } while (phone.length() != 10 || !isNumber(phone));
+        return phone;
+    }
+
+    // Function to validate and append email domain if missing
+    string getValidEmail(const string& emailInput) {
+        string email = emailInput;
+        if (email.find('@') == string::npos) {
+            email += "@gmail.com";
+        }
+        return email;
+    }
+
+    // Function to get a valid location
+    string getValidLocation() {
+        vector<string> locations = {"Shivaji Nagar", "Tilakwadi", "Khanapur Road", "Peeranwadi", "Goa Ves","Tilakwadi","Shahpur"
+"Hanuman Nagar","Rani Chennamma Nagar","Vishweswarayya Nagar","Sadashiv Nagar","Shivbasava Nagar","Mandoli Road Area","Vadgaon","Kangrali (BK)","Kangrali (KH)","Deshmukh Road Area","Angol","Mahalaxmi Nagar","Kakti","Hindwadi","Adarsh Nagar","New Goods Shed Road Area","Jadhav Nagar","Yellur"};
+        int choice;
+        cout << "Available delivery locations in Belagavi, Karnataka:\n";
+        for (size_t i = 0; i < locations.size(); ++i) {
+            cout << i + 1 << ". " << locations[i] << "\n";
+        }
+        do {
+            cout << "Enter the number corresponding to your location: ";
+            cin >> choice;
+            if (choice < 1 || choice > locations.size()) {
+                cout << "Invalid choice. Please select a valid location.\n";
+            }
+        } while (choice < 1 || choice > locations.size());
+        return locations[choice - 1];
+    }
+
+    // Function to validate and get a valid ID
+    int getValidId(const string& prompt) {
+        string idStr;
+        do {
+            cout << prompt;
+            cin >> idStr;
+            if (!isNumber(idStr)) {
+                cout << "Invalid ID. Please enter digits only.\n";
+            }
+        } while (!isNumber(idStr));
+        return stoi(idStr);
+    }
+
+public:
+    CustomerManagement() : nextCustomerId(1), loggedInCustomerId(-1) {
+        loadCustomers();
+    }
+
+    // Hidden password input function
+    string getHiddenPassword() {
+        string password;
+#ifdef _WIN32
+        char ch;
+        while ((ch = _getwch()) != '\r') {
+            if (ch == '\b' && !password.empty()) {
+                password.pop_back();
+                cout << "\b \b";
+            } else if (isprint(ch)) {
+                password += ch;
+                cout << "*";
+            }
+        }
+#else
+        struct termios oldt, newt;
+        tcgetattr(STDIN_FILENO, &oldt);
+        newt = oldt;
+        newt.c_lflag &= ~(ECHO);
+        tcsetattr(STDIN_FILENO, TCSANOW, &newt);
+        getline(cin, password);
+        tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
+        cout << endl;
+#endif
+        return password;
+    }
+
+    // Validation functions
+    bool isNumber(const string& s) {
+        return !s.empty() && all_of(s.begin(), s.end(), ::isdigit);
+    }
+
+    bool isAlphabetic(const string& s) {
+        return !s.empty() && all_of(s.begin(), s.end(), ::isalpha);
+    }
+
+    // Function to register a new customer
+    void addCustomer(const string& name, const string& email, const string& password) {
+        for (const auto& customer : customers) {
+            if (customer.email == email) {
+                cout << "Email already registered. Please use a different email." << endl;
+                return;
+            }
+        }
+
+        if (!isAlphabetic(name)) {
+            cout << "Invalid name. Name must contain only alphabets." << endl;
+            return;
+        }
+
+        string phone = getValidPhoneNumber();
+        string validatedEmail = getValidEmail(email);
+        string location = getValidLocation();
+
+        Customer newCustomer = {nextCustomerId++, name, validatedEmail, phone, password, location};
+        customers.push_back(newCustomer);
+        saveCustomers();
+        cout << "Customer registered successfully with ID: " << newCustomer.id << endl;
+    }
+
+    // Function to log in a customer
+    bool loginCustomer(const string& email, const string& password) {
+        for (const auto& customer : customers) {
+            if (customer.email == email && customer.password == password) {
+                loggedInCustomerId = customer.id;
+                cout << "Login successful. Welcome, " << customer.name << "!" << endl;
+                return true;
+            }
+        }
+        cout << "Invalid email or password." << endl;
+        return false;
+    }
+
+    // Function to log out
+    void logoutCustomer() {
+        if (loggedInCustomerId != -1) {
+            cout << "Logged out successfully." << endl;
+            loggedInCustomerId = -1;
+        } else {
+            cout << "No user is currently logged in." << endl;
+        }
+    }
+
+    // Function to update a customer
+    void updateCustomer() {
+        int id = getValidId("Enter customer ID to update: ");
+        for (auto& customer : customers) {
+            if (customer.id == id) {
+                cout << "Enter password to confirm update: ";
+                string password = getHiddenPassword();
+                if (password != customer.password) {
+                    cout << "Incorrect password. Update canceled." << endl;
+                    return;
+                }
+
+                string name, email;
+                cout << "Enter new customer name (alphabets only): ";
+                cin.ignore();
+                getline(cin, name);
+                while (!isAlphabetic(name)) {
+                    cout << "Invalid name. Please enter alphabets only: ";
+                    getline(cin, name);
+                }
+
+                cout << "Enter new customer email: ";
+                getline(cin, email);
+                string phone = getValidPhoneNumber();
+                string location = getValidLocation();
+
+                customer.name = name;
+                customer.email = getValidEmail(email);
+                customer.phone = phone;
+                customer.location = location;
+
+                cout << "Enter new password: ";
+                customer.password = getHiddenPassword();
+
+                saveCustomers();
+                cout << "Customer updated successfully!" << endl;
+                return;
+            }
+        }
+        cout << "Customer with ID " << id << " not found!" << endl;
+
+         }
+
+    // Function to delete a customer
+    void deleteCustomer() {
+        int id = getValidId("Enter customer ID to delete: ");
+        for (const auto& customer : customers) {
+            if (customer.id == id) {
+                cout << "Enter password to confirm deletion: ";
+                string password = getHiddenPassword();
+                if (password != customer.password) {
+                    cout << "Incorrect password. Deletion canceled." << endl;
+                    return;
+                }
+
+                auto it = remove_if(customers.begin(), customers.end(), [id](const Customer& customer) {
+                    return customer.id == id;
+                });
+
+                if (it != customers.end()) {
+                    customers.erase(it, customers.end());
+                    saveCustomers();
+                    cout << "Customer deleted successfully!" << endl;
+                }
+                return;
+            }
+        }
+        cout << "Customer with ID " << id << " not found!" << endl;
+    }
+
+    // Function to display all customers
+    void displayCustomers() {
+        if (customers.empty()) {
+            cout << "No customers registered." << endl;
+            return;
+        }
+
+        cout << left << setw(5) << "ID"
+             << setw(20) << "Name"
+             << setw(25) << "Email"
+             << setw(15) << "Phone"
+             << setw(25) << "Location" << endl;
+        cout << string(90, '-') << endl;
+
+        for (const auto& customer : customers) {
+            cout << left << setw(5) << customer.id
+                 << setw(20) << customer.name
+                 << setw(25) << customer.email
+                 << setw(15) << customer.phone
+                 << setw(25) << customer.location << endl;
+        }
+    }
+};
+
+// OrderManagement class to handle order operations
+class OrderManagement {
+private:
+    vector<Order> orders;
+    const string orderFile = "orders.txt";
+
+    // Helper function to generate order ID
+    string generateOrderId() {
+        auto now = chrono::system_clock::now();
+        auto time = chrono::system_clock::to_time_t(now);
+        return "ORD" + to_string(time);
+    }
+
+    // Helper function to get current date
+    string getCurrentDate() {
+        time_t now = time(0);
+        char* dt = ctime(&now);
+        return string(dt).substr(0, 24); // Remove newline
+    }
+
+    // Save orders to file
+    void saveOrders() {
+        ofstream file(orderFile);
+        if (file.is_open()) {
+            for (const auto& order : orders) {
+                file << order.orderId << "|"
+                     << order.customerId << "|"
+                     << order.customerName << "|"
+                     << static_cast<int>(order.status) << "|"
+                     << order.totalAmount << "|"
+                     << order.orderDate << "|"
+                     << order.deliveryAddress << "|"
+                     << order.paymentMethod << "|"
+                     << order.isPaid << "||";
+
+                // Save order items
+                for (const auto& item : order.items) {
+                    file << item.productId << ","
+                         << item.productName << ","
+                         << item.vendorId << ","
+                         << item.quantity << ","
+                         << item.unitPrice << ","
+                         << item.totalPrice << ";";
+                }
+                file << "\n";
+            }
+            file.close();
+        }
+    }
+
+    // Load orders from file
+    void loadOrders() {
+        orders.clear();
+        ifstream file(orderFile);
+        string line;
+
+        if (file.is_open()) {
+            while (getline(file, line)) {
+                Order order;
+                size_t pos = line.find("||");
+                string orderInfo = line.substr(0, pos);
+                string itemsInfo = line.substr(pos + 2);
+
+                // Parse order information
+                vector<string> orderFields;
+                stringstream ss(orderInfo);
+                string field;
+                while (getline(ss, field, '|')) {
+                    orderFields.push_back(field);
+                }
+
+                if (orderFields.size() >= 9) {
+                    order.orderId = orderFields[0];
+                    order.customerId = stoi(orderFields[1]);
+                    order.customerName = orderFields[2];
+                    order.status = static_cast<OrderStatus>(stoi(orderFields[3]));
+                    order.totalAmount = stof(orderFields[4]);
+                    order.orderDate = orderFields[5];
+                    order.deliveryAddress = orderFields[6];
+                    order.paymentMethod = orderFields[7];
+                    order.isPaid = (orderFields[8] == "1");
+ // Parse order items
+                    stringstream itemStream(itemsInfo);
+                    string item;
+                    while (getline(itemStream, item, ';')) {
+                        if (!item.empty()) {
+                            OrderItem orderItem;
+                            vector<string> itemFields;
+                            stringstream itemStream(item);
+                            string itemField;
+                            while (getline(itemStream, itemField, ',')) {
+                                itemFields.push_back(itemField);
+                            }
+
+                            if (itemFields.size() >= 6) {
+                                OrderItem item;
+                                item.productId = itemFields[0];
+                                item.productName = itemFields[1];
+                                item.vendorId = itemFields[2];
+                                item.quantity = stoi(itemFields[3]);
+                                item.unitPrice = stof(itemFields[4]);
+                                item.totalPrice = stof(itemFields[5]);
+                                order.items.push_back(item);
+                            }
+                        }
+                    }
+                    orders.push_back(order);
+                }
+            }
+            file.close();
+        }
+    }
+
+    // Validate product availability and get details
+    bool validateAndGetProductDetails(const string& productId, int requestedQuantity,
+                                      float& unitPrice, string& productName, string& vendorId) {
+        ifstream file("products.txt");
+        string line;
+        bool productFound = false;
+
+        if (file.is_open()) {
+            while (getline(file, line)) {
+                stringstream ss(line);
+                string id, name, category, price, stock, vid;
+                getline(ss, id, ',');
+                getline(ss, name, ',');
+                getline(ss, category, ',');
+                getline(ss, price, ',');
+                getline(ss, stock, ',');
+                getline(ss, vid, ',');
+
+                                if (id == productId) {
+                    productFound = true;
+                    int availableStock = stoi(stock);
+                    if (availableStock >= requestedQuantity) {
+                        unitPrice = stof(price);
+                        productName = name;
+                        vendorId = vid;
+                        file.close();
+                        return true;
+                    }
+                    break; // Insufficient stock
+                }
+            }
+            file.close();
+        }
+
+        if (!productFound) {
+            cout << "Product not found!\n";
+        } else {
+            cout << "Insufficient stock!\n";
+        }
+        return false;
+    }
+
+    // Update product stock
+    void updateProductStock(const string& productId, int quantity) {
+        ifstream inFile("products.txt");
+        ofstream outFile("products_temp.txt");
+        string line;
+
+        if (inFile.is_open() && outFile.is_open()) {
+            while (getline(inFile, line)) {
+                stringstream ss(line);
+                string id, rest;
+                getline(ss, id, ',');
+                getline(ss, rest);
+
+                if (id == productId) {
+                    // Parse the rest of the line
+                    stringstream restSS(rest);
+                    string name, category, price, stock, vendorId;
+                    getline(restSS, name, ',');
+                    getline(restSS, category, ',');
+                    getline(restSS, price, ',');
+                    getline(restSS, stock, ',');
+                    getline(restSS, vendorId);
+
+                    int currentStock = stoi(stock);
+                    int newStock = currentStock - quantity;
+
+                    // Write updated line
+                    outFile << id << "," << name << "," << category << ","
+                             << price << "," << newStock << "," << vendorId << "\n";
+                } else {
+                    outFile << line << "\n";
+                }
+            }
+            inFile.close();
+            outFile.close();
+
+            // Replace original file
+            remove("products.txt");
+            rename("products_temp.txt", "products.txt");
+        }
+    }
+
+    // Validate customer
+    bool validateCustomer(int customerId, string& customerName) {
+        ifstream file("customers.txt");
+        string line;
+
+        if (file.is_open()) {
+            while (getline(file, line)) {
+                stringstream ss(line);
+                string id, name;
+                getline(ss, id, ',');
+                getline(ss, name, ',');
+
+                if (stoi(id) == customerId) {
+                    customerName = name;
+                    file.close();
+                    return true;
+                }
+            }
+            file.close();
+        }
+        return false;
+    }
+
+public:
+    OrderManagement() {
+        loadOrders();
+    }
+
+    // Place new order
+    void placeOrder() {
+        Order newOrder;
+        int customerId;
+        string customerName;
+
+        cout << "Enter Customer ID: ";
+        cin >> customerId;
+
+        if (!validateCustomer(customerId, customerName)) {
+            cout << "Invalid customer ID!\n";
+            return;
+        }
+
+        newOrder.orderId = generateOrderId();
+        newOrder.customerId = customerId;
+        newOrder.customerName = customerName;
+        newOrder.orderDate = getCurrentDate();
+        newOrder.status = OrderStatus::PENDING;
+        newOrder.isPaid = false;
+
+        cout << "\nEnter delivery address: ";
+        cin.ignore();
+        getline(cin, newOrder.deliveryAddress);
+
+        // Add items to order
+        float totalAmount = 0;
+        char addMore;
+        do {
+            OrderItem item;
+            float unitPrice;
+            string productName, vendorId;
+
+            cout << "\nEnter Product ID: ";
+            cin >> item.productId;
+            cout << "Enter quantity: ";
+            cin >> item.quantity;
+
+            if (validateAndGetProductDetails(item.productId, item.quantity,
+                unitPrice, productName, vendorId)) {
+                item.unitPrice = unitPrice;
+                item.productName = productName;
+                item.vendorId = vendorId;
+                item.totalPrice = unitPrice * item.quantity;
+                totalAmount += item.totalPrice;
+                newOrder.items.push_back(item);
+                updateProductStock(item.productId, item.quantity);
+            } else {
+                cout << "Failed to add product to order.\n";
+                continue;
+            }
+
+            cout << "Add more items? (y/n): ";
+            cin >> addMore;
+        } while (toupper(addMore) == 'Y');
+
+        newOrder.totalAmount = totalAmount;
+
+        // Payment method selection
+        cout << "\nSelect payment method:\n";
+        cout << "1. Cash on Delivery\n";
+        cout << "2. Credit Card\n";
+        cout << "3. Online Payment\n";
+        int paymentChoice;
+        cin >> paymentChoice;
+
+        switch (paymentChoice) {
+            case 1:
+                newOrder.paymentMethod = "Cash on Delivery";
+                break;
+                        case 2:
+                newOrder.paymentMethod = "Credit Card";
+                break;
+            case 3:
+                newOrder.paymentMethod = "Online Payment";
+                break;
+            default:
+                cout << "Invalid choice. Defaulting to Cash on Delivery.\n";
+                newOrder.paymentMethod = "Cash on Delivery";
+        }
+
+        orders.push_back(newOrder);
+        saveOrders();
+        cout << "\nOrder placed successfully! Order ID: " << newOrder.orderId << endl;
+    }
+
+    // View orders
+    void viewOrders() {
+        if (orders.empty()) {
+            cout << "\nNo orders found.\n";
+            return;
+        }
+
+        cout << "\nOrder List:\n";
+        for (const auto& order : orders) {
+            cout << "Order ID: " << order.orderId << endl;
+            cout << "Customer: " << order.customerName << endl;
+            cout << "Total Amount: " << fixed << setprecision(2) << order.totalAmount << endl;
+            cout << "Order Date: " << order.orderDate << endl;
+            cout << "Status: " << static_cast<int>(order.status) << endl;
+            cout << "Payment Method: " << order.paymentMethod << endl;
+            cout << "Delivery Address: " << order.deliveryAddress << endl;
+
+            cout << "Items:\n";
+            for (const auto& item : order.items) {
+                cout << "Product: " << item.productName << ", Quantity: " << item.quantity
+                     << ", Price: " << item.unitPrice << ", Total: " << item.totalPrice << endl;
+            }
+
+            cout << "----------------------------------------\n";
+        }
+    }
+};
+class User {
+private:
+    string username;
+    string password;
+    UserRole role;
+    bool isActive;
+
+public:
+    User(string uname, string pwd, UserRole r)
+        : username(uname), password(pwd), role(r), isActive(true) {}
+
+    string toString() {
+        return username + "|" + password + "|" + to_string(role) + "|" + to_string(isActive);
+    }
+
+    static User fromString(const string& str) {
+        stringstream ss(str);
+        string username, password, roleStr, activeStr;
+        getline(ss, username, '|');
+        getline(ss, password, '|');
+        getline(ss, roleStr, '|');
+        getline(ss, activeStr, '|');
+        return User(username, password, static_cast<UserRole>(stoi(roleStr)));
+    }
+
+    string getUsername() { return username; }
+    UserRole getRole() { return role; }
+    bool authenticate(string pwd) { return password == pwd && isActive; }
+
+    string getPassword() {
+        return string(password.length(), '*');  // Return password as asterisks
+    }
+};
+class Review {
+private:
+    string title;
+    string description;
+    string author;
+    string assignee;
+    ReviewStatus status;
+    vector<string> comments;
+    vector<string> feedback;
+    vector<pair<string, int>> ratings;
+    double averageRating;
+
+public:
+    Review(string t, string desc, string auth)
+        : title(t), description(desc), author(auth), status(PENDING), averageRating(0.0) {}
+
+    string toString() {
+        stringstream ss;
+        ss << title << "|" << description << "|" << author << "|" << assignee << "|" << status << "\n";
+        ss << comments.size() << "\n";
+        for(const auto& comment : comments) ss << comment << "\n";
+        ss << feedback.size() << "\n";
+        for(const auto& fb : feedback) ss << fb << "\n";
+        ss << ratings.size() << "\n";
+        for(const auto& rating : ratings) {
+            ss << rating.first << "|" << rating.second << "\n";
+        }
+        return ss.str();
+    }
+
+    static Review fromString(stringstream& ss) {
+        string title, description, author, assignee, statusStr;
+        string line;
+        getline(ss, line);
+        stringstream headerSS(line);
+        getline(headerSS, title, '|');
+        getline(headerSS, description, '|');
+        getline(headerSS, author, '|');
+        getline(headerSS, assignee, '|');
+        getline(headerSS, statusStr, '|');
+
+        Review review(title, description, author);
+        review.assignee = assignee;
+        review.status = static_cast<ReviewStatus>(stoi(statusStr));
+
+        int count;
+        getline(ss, line);
+        count = stoi(line);
+        for(int i = 0; i < count; i++) {
+            getline(ss, line);
+            review.comments.push_back(line);
+        }
+
+        getline(ss, line);
+        count = stoi(line);
+        for(int i = 0; i < count; i++) {
+            getline(ss, line);
+            review.feedback.push_back(line);
+        }
+
+        getline(ss, line);
+        count = stoi(line);
+        for(int i = 0; i < count; i++) {
+            getline(ss, line);
+            stringstream ratingSS(line);
+            string username, ratingStr;
+            getline(ratingSS, username, '|');
+            getline(ratingSS, ratingStr, '|');
+            review.ratings.push_back({username, stoi(ratingStr)});
+        }
+        review.updateAverageRating();
+        return review;
+    }
+
+    void addRating(string username, int rating) {
+        if(rating < 1 || rating > 5) {
+            throw runtime_error("Rating must be between 1 and 5");
+        }
+        bool found = false;
+        for(auto& r : ratings) {
+            if(r.first == username) {
+                r.second = rating;
+                found = true;
+                break;
+            }
+        }
+        if(!found) {
+            ratings.push_back({username, rating});
+        }
+        updateAverageRating();
+    }
+
+    void updateAverageRating() {
+        if(ratings.empty()) {
+            averageRating = 0.0;
+            return;
+        }
+        double sum = 0;
+        for(const auto& rating : ratings) {
+            sum += rating.second;
+        }
+        averageRating = sum / ratings.size();
+    }
+
+    void addComment(string comment) {
+        comments.push_back(comment);
+    }
+
+    void addFeedback(int feedbackChoice) {
+        string feedbackStr;
+        switch(feedbackChoice) {
+            case 1: feedbackStr = "Excellent"; break;
+            case 2: feedbackStr = "Very Good"; break;
+            case 3: feedbackStr = "Good"; break;
+            case 4: feedbackStr = "Average"; break;
+            case 5: feedbackStr = "Bad"; break;
+            default: feedbackStr = "Invalid"; break;
+        }
+        feedback.push_back(feedbackStr);
+    }
+
+    void assignTo(string reviewer) {
+        assignee = reviewer;
+        status = IN_PROGRESS;
+    }
+
+    void complete() {
+        status = COMPLETED;
+    }
+
+    void edit(string newTitle, string newDescription) {
+        title = newTitle;
+        description = newDescription;
+    }
+
+    void displayReview() {
+        cout << "\nReview Title: " << title;
+        cout << "\nDescription: " << description;
+        cout << "\nAuthor: " << author;
+        cout << "\nAssigned to: " << (assignee.empty() ? "Not assigned" : assignee);
+        cout << "\nAverage Rating: " << (averageRating == 0 ? "No ratings yet" : to_string(averageRating));
+        cout << "\nStatus: ";
+        switch(status) {
+            case PENDING: cout << "Pending"; break;
+            case IN_PROGRESS: cout << "In Progress"; break;
+            case COMPLETED: cout << "Completed"; break;
+            case REJECTED: cout << "Rejected"; break;
+        }
+
+        cout << "\n\nRatings:";
+        if(ratings.empty()) {
+            cout << "\nNo ratings yet.";
+        } else {
+            for(const auto& rating : ratings) {
+                cout << "\n- " << rating.first << ": " << rating.second << "/5";
+            }
+        }
+
+        cout << "\n\nComments:";
+        if(comments.empty()) {
+            cout << "\nNo comments yet.";
+        } else {
+            for(const string& comment : comments) {
+                cout << "\n- " << comment;
+            }
+        }
+
+        cout << "\n\nFeedback Items:";
+        if(feedback.empty()) {
+            cout << "\nNo feedback yet.";
+        } else {
+            for(const string& fb : feedback) {
+                cout << "\n- " << fb;
+            }
+        }
+        cout << "\n";
+    }
+
+    string getTitle() { return title; }
+    ReviewStatus getStatus() { return status; }
+    double getAverageRating() { return averageRating; }  // Add getter for averageRating
+};
+
+class ReviewSystem {
+private:
+    vector<User> users;
+    vector<Review> reviews;
+    User* currentUser;
+    string dataFile;
+
+    void saveData() {
+        ofstream file(dataFile);
+        file << users.size() << "\n";
+        for(auto& user : users) {
+            file << user.toString() << "\n";
+        }
+        file << reviews.size() << "\n";
+        for(auto& review : reviews) {
+            file << review.toString();
+        }
+    }
+
+    void loadData() {
+        ifstream file(dataFile);
+        if(!file.is_open()) return;
+
+        string line;
+        getline(file, line);
+        int userCount = stoi(line);
+
+        users.clear();
+        for(int i = 0; i < userCount; i++) {
+            getline(file, line);
+            users.push_back(User::fromString(line));
+        }
+
+        getline(file, line);
+        int reviewCount = stoi(line);
+
+        reviews.clear();
+        stringstream ss;
+        for(int i = 0; i < reviewCount; i++) {
+            string reviewData;
+            while(getline(file, line)) {
+                ss << line << "\n";
+            }
+            if(!ss.str().empty()) {
+                reviews.push_back(Review::fromString(ss));
+            }
+        }
+    }
+
+public:
+    ReviewSystem() : currentUser(nullptr) {
+        dataFile = "review_system.txt";
+        loadData();
+        if(users.empty()) {
+            users.push_back(User("admin", "admin123", ADMIN));
+            saveData();
+        }
+    }
+
+    void registerUser(string username, string password, UserRole role) {
+        users.push_back(User(username, password, role));
+        saveData();
+        cout << "\nUser registered successfully!\n";
+    }
+
+    bool login(string username, string password) {
+        for(auto& user : users) {
+            if(user.getUsername() == username && user.authenticate(password)) {
+                currentUser = &user;
+                cout << "\nLogged in successfully as " << username << "\n";
+                return true;
+            }
+        }
+        cout << "\nLogin failed. Invalid username or password.\n";
+        return false;
+    }
+
+    void createReview(string title, string description) {
+        if(!currentUser || currentUser->getRole() == GUEST) {
+            cout << "\nPlease login first!\n";
+            return;
+        }
+        reviews.push_back(Review(title, description, currentUser->getUsername()));
+        saveData();
+        cout << "\nReview created successfully!\n";
+    }
+
+    void editReview(int reviewIndex, string newTitle, string newDescription) {
+        if(!currentUser || currentUser->getRole() == GUEST) {
+            cout << "\nPlease login first!\n";
+            return;
+        }
+        if(reviewIndex <= 0 || reviewIndex > reviews.size()) {
+            cout << "\nInvalid review number!\n";
+            return;
+        }
+        reviews[reviewIndex - 1].edit(newTitle, newDescription);
+        saveData();
+        cout << "\nReview updated successfully!\n";
+    }
+
+    void deleteReview(int reviewIndex) {
+        if(!currentUser) {
+            cout << "\nPlease login first!\n";
+            return;
+        }
+
+        string username, password;
+        cout << "\nEnter username: ";
+        cin >> username;
+        cout << "Enter password: ";
+        cin >> password;
+
+        if (currentUser->getUsername() == username && currentUser->authenticate(password)) {
+            if(reviewIndex <= 0 || reviewIndex > reviews.size()) {
+                cout << "\nInvalid review number!\n";
+                return;
+            }
+            reviews.erase(reviews.begin() + (reviewIndex - 1));
+            saveData();
+            cout << "\nReview deleted successfully!\n";
+        } else {
+            cout << "\nAuthentication failed. Deletion not allowed.\n";
+        }
+    }
+
+    void listReviews() {
+        if(reviews.empty()) {
+            cout << "\nNo reviews available.\n";
+            return;
+        }
+
+        cout << "\nAvailable Reviews:\n";
+        for(int i = 0; i < reviews.size(); i++) {
+            cout << i + 1 << ". " << reviews[i].getTitle() << " (Status: ";
+            switch(reviews[i].getStatus()) {
+                case PENDING: cout << "Pending"; break;
+                case IN_PROGRESS: cout << "In Progress"; break;
+                case COMPLETED: cout << "Completed"; break;
+                case REJECTED: cout << "Rejected"; break;
+            }
+            cout << ")\n";
+        }
+    }
+
+    void viewReview(int index) {
+        if(index <= 0 || index > reviews.size()) {
+            cout << "\nInvalid review index.\n";
+            return;
+        }
+        reviews[index - 1].displayReview();
+    }
+
+    void addRating(int reviewIndex, int rating) {
+        if(reviewIndex <= 0 || reviewIndex > reviews.size()) {
+            cout << "\nInvalid review index.\n";
+            return;
+        }
+        if(currentUser->getRole() == GUEST) {
+            cout << "\nGuests cannot rate reviews.\n";
+            return;
+        }
+        reviews[reviewIndex - 1].addRating(currentUser->getUsername(), rating);
+        saveData();
+        cout << "\nRating added successfully!\n";
+    }
+
+    void addFeedback(int reviewIndex) {
+        if(reviewIndex <= 0 || reviewIndex > reviews.size()) {
+            cout << "\nInvalid review index.\n";
+            return;
+        }
+
+        int feedbackChoice;
+        cout << "\nSelect feedback option:";
+        cout << "\n1. Excellent\n2. Very Good\n3. Good\n4. Average\n5. Bad\n";
+        cout << "Enter your choice: ";
+        cin >> feedbackChoice;
+
+        reviews[reviewIndex - 1].addFeedback(feedbackChoice);
+        saveData();
+        cout << "\nFeedback added successfully!\n";
+    }
+
+    void assignReview(int reviewIndex, string reviewer) {
+        if(reviewIndex <= 0 || reviewIndex > reviews.size()) {
+            cout << "\nInvalid review index.\n";
+            return;
+        }
+        if(currentUser->getRole() == GUEST) {
+            cout << "\nGuests cannot assign reviews.\n";
+            return;
+        }
+        reviews[reviewIndex - 1].assignTo(reviewer);
+        saveData();
+        cout << "\nReview assigned successfully!\n";
+    }
+
+    void completeReview(int reviewIndex) {
+        if(reviewIndex <= 0 || reviewIndex > reviews.size()) {
+            cout << "\nInvalid review index.\n";
+            return;
+        }
+        reviews[reviewIndex - 1].complete();
+        saveData();
+        cout << "\nReview marked as completed!\n";
+    }
+
+    // Function to filter reviews by rating
+    void searchReviewsByRating(int minRating) {
+        if(minRating < 1 || minRating > 5) {
+            cout << "\nInvalid rating.\n";
+            return;
+        }
+        cout << "\nReviews with rating greater than or equal to " << minRating << ":\n";
+        for(int i = 0; i < reviews.size(); i++) {
+            if(reviews[i].getAverageRating() >= minRating) {
+                cout << i + 1 << ". " << reviews[i].getTitle() << " (Rating: " << reviews[i].getAverageRating() << ")\n";
+            }
+        }
+    }
+
+    // Logout function to reset the currentUser
+    void logout() {
+        currentUser = nullptr;
+        cout << "\nLogged out successfully.\n";
+    }
+};
+
+// Function to get the password input and mask it with '*'
+string getPasswordInput() {
+    string password = "";
+    char ch;
+    while (true) {
+        ch = _getch();  // _getch() reads one character from user input
+        if (ch == 13) {  // If Enter is pressed, exit loop
+            break;
+        } else if (ch == 8) {  // Backspace to delete
+            if (!password.empty()) {
+                password.pop_back();
+                cout << "\b \b";  // Erase last character on screen
+            }
+        } else {
+            password.push_back(ch);
+            cout << "*";  // Display * for each character typed
+        }
+    }
+    cout << endl;
+    return password;
+}
+
+// Main Integrated Module
+int main() {
+    VendorManager vm;
+    ProductManager pm;
+    CustomerManagement cm;
+    OrderManagement om;
+     ReviewSystem reviewSystem;
+
+    int mainChoice;
+
+    do {
+        cout << "\n--- Local Vendor Support System ---\n";
+        cout << "1. Vendor Management\n";
+        cout << "2. Product Management\n";
+        cout << "3. Customer Management\n";
+        cout << "4. Order Management\n";
+                cout << "5. review Management\n";
+
+        cout << "6 Exit\n";
+
+        cout << "Enter your choice: ";
+        cin >> mainChoice;
+
+        switch (mainChoice) {
+            case 1: {
+                int vendorChoice;
+                do {
+                    cout << "\n--- Vendor Management System ---\n";
+                    cout << "1. Add Vendor\n";
+                    cout << "2. View Vendors\n";
+                    cout << "3. Edit Vendor\n";
+                    cout << "4. Delete Vendor\n";
+                    cout << "5. Vendor Login\n";
+                    cout << "6. Back to Main Menu\n";
+
+                    cout << "Enter your choice: ";
+                    cin >> vendorChoice;
+
+                    switch (vendorChoice) {
+                        case 1:
+                            vm.addVendor();
+                            break;
+                        case 2:
+                            vm.viewVendors();
+                            break;
+                        case 3:
+                            vm.editVendor();
+                            break;
+                        case 4:
+                            vm.deleteVendor();
+                            break;
+                        case 5:
+                            vm.loginVendor();
+                            break;
+                        case 6:
+                            cout << "Returning to Main Menu.\n";
+                            break;
+                        default:
+                            cout << "Invalid choice! Please try again.\n";
+                    }
+                } while (vendorChoice != 6);
+                break;
+            }
+            case 2: {
+                int productChoice;
+                do {
+                    cout << "\n--- Product Management System ---\n";
+                    cout << "1. Add Product\n";
+                    cout << "2. Display Products\n";
+                    cout << "3. Update Product\n";
+                    cout << "4. Delete Product\n";
+                    cout << "5. Back to Main Menu\n";
+
+                    cout << "Enter your choice: ";
+                    cin >> productChoice;
+
+                    switch (productChoice) {
+                        case 1:
+                            pm.addProduct();
+                            break;
+                        case 2:
+                            pm.displayProducts();
+                            break;
+                        case 3:
+                            pm.updateProduct();
+                            break;
+                        case 4:
+                            pm.deleteProduct();
+                            break;
+                        case 5:
+                            cout << "Returning to Main Menu.\n";
+                            break;
+                        default:
+                            cout << "Invalid choice! Please try again.\n";
+                    }
+                } while (productChoice != 5);
+                break;
+            }
+            case 3: { // Customer Management System
+                int customerChoice; // Variable for nested menu
+                do {
+                    cout << "\n--- Customer Management System ---\n";
+                    cout << "1. Register Customer\n";
+                    cout << "2. Log In\n";
+                    cout << "3. Log Out\n";
+                    cout << "4. Update Customer\n";
+
+                    cout << "5. Display Customers\n";
+                    cout << "6. Delete Customer\n";
+                                        cout << "7. Back to Main Menu\n";
+                    cout << "Enter your choice: ";
+                    cin >> customerChoice;
+
+                    switch (customerChoice) {
+                        case 1: {
+                          string name, email, password;
+                cout << "Enter customer name (alphabets only): ";
+                cin.ignore();
+                getline(cin, name);
+                cout << "Enter customer email: ";
+                getline(cin, email);
+                cout << "Enter customer password: ";
+                password = cm.getHiddenPassword();
+                cm.addCustomer(name, email, password);
+                break;
+            }
+                        case 2: {
+                           string email, password;
+                cout << "Enter email: ";
+                cin.ignore();
+                getline(cin, email);
+                cout << "Enter password: ";
+                password = cm.getHiddenPassword();
+                cm.loginCustomer(email, password);
+                break;
+            }
+                        case 3:
+                            cm.logoutCustomer();
+                            break;
+                        case 4:
+                            cm.updateCustomer();
+                            break;
+                        case 5:
+                            cm.displayCustomers();
+                            break;
+                        case 6:
+                            cm.deleteCustomer();
+                            break;
+                        case 7:
+                            cout << "Returning to Main Menu.\n";
+                            break;
+                        default:
+                            cout << "Invalid choice! Please try again.\n";
+                    }
+                } while (customerChoice != 7); // Exit nested menu on choice 6
+                break;
+            }
+            case 4: { // Order Management System
+                int orderChoice;
+                do {
+                    cout << "\n--- Order Management System ---\n";
+                    cout << "1. Place Order\n";
+                    cout << "2. View Orders\n";
+                    cout << "3. Back to Main Menu\n";
+                    cout << "Enter your choice: ";
+                    cin >> orderChoice;
+
+                    switch (orderChoice) {
+                        case 1:
+                            om.placeOrder();
+
+                            break;
+                        case 2:
+                            om.viewOrders();
+                            break;
+                        case 3:
+                            cout << "Returning to Main Menu.\n";
+                            break;
+                        default:
+                            cout << "Invalid choice! Please try again.\n";
+                    }
+                } while (orderChoice != 3);
+                break;
+            }
+            case 5:{
+                 int reviewchoice;
+                  do {
+                    cout << "\n--- review Management System ---\n";
+
+        cout << "\nMenu:\n";
+        cout << "1. Register User\n";
+        cout << "2. Login\n";
+        cout << "3. Create Review\n";
+        cout << "4. Edit Review\n";
+        cout << "5. Delete Review\n";
+        cout << "6. List Reviews\n";
+        cout << "7. View Review\n";
+        cout << "8. Add Rating\n";
+        cout << "9. Add Feedback\n";
+        cout << "10. Search Reviews by Rating\n";
+        cout << "11. Logout\n";
+        cout << "12. Back to Main Menu\n";
+        cout << "Enter your choice: ";
+         cin >> reviewchoice;
+
+        int reviewIndex, rating, feedbackChoice, minRating;
+        string username, password, title, description;
+        switch (reviewchoice) {
+
+                case 1:
+                cout << "\nEnter username: ";
+                cin >> username;
+                cout << "Enter password: ";
+                password = getPasswordInput();  // Use masked password input
+                reviewSystem.registerUser(username, password, REVIEWER);
+                break;
+
+                case 2:
+                cout << "\nEnter username: ";
+                cin >> username;
+                cout << "Enter password: ";
+                password = getPasswordInput();
+                reviewSystem.login(username, password);
+                break;
+
+
+                case 3:
+                cout << "\nEnter review number to rate: ";
+                cin >> reviewIndex;
+                cout << "\nEnter review title: ";
+                cin.ignore();
+                getline(cin, title);
+                cout << "Enter review description: ";
+                getline(cin, description);
+                reviewSystem.createReview(title, description);
+                break;
+
+            case 4:
+                cout << "\nEnter review number to edit: ";
+                cin >> reviewIndex;
+                cout << "Enter new title: ";
+                cin.ignore();
+                getline(cin, title);
+                cout << "Enter new description: ";
+                getline(cin, description);
+                reviewSystem.editReview(reviewIndex, title, description);
+                break;
+
+            case 5:
+                cout << "\nEnter review number to delete: ";
+                cin >> reviewIndex;
+                reviewSystem.deleteReview(reviewIndex);
+                break;
+
+            case 6:
+                reviewSystem.listReviews();
+                break;
+
+            case 7:
+                cout << "\nEnter review number to view: ";
+                cin >> reviewIndex;
+                reviewSystem.viewReview(reviewIndex);
+                break;
+
+            case 8:
+                cout << "\nEnter review number to rate: ";
+                cin >> reviewIndex;
+                cout << "Enter rating (1-5): ";
+                cin >> rating;
+                reviewSystem.addRating(reviewIndex, rating);
+                break;
+
+            case 9:
+                cout << "\nEnter review number to add feedback: ";
+                cin >> reviewIndex;
+                reviewSystem.addFeedback(reviewIndex);
+                break;
+
+            case 10:
+                cout << "\nEnter minimum rating (1-5): ";
+                cin >> minRating;
+                reviewSystem.searchReviewsByRating(minRating);
+                break;
+
+            case 11:
+                reviewSystem.logout();
+                break;
+            case 12:
+                            cout << "Returning to Main Menu.\n";
+                            break;
+                        default:
+
+          cout << "Invalid choice! Please try again.\n";
+                    }
+                } while (reviewchoice != 12);
+                break;
+            }
+case 6:
+                cout << "Exiting program. Goodbye!\n";
+                break;
+default:
+                cout << "Invalid choice! Please try again.\n";
+        }
+    }while (mainChoice != 6); // Exit program on choice 5
+
+    return 0;
+}
