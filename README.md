@@ -2,7 +2,7 @@
 an interactive phase between vendors and customers
 ## Portfolio
 
-### Hello, I'm akshata 👋
+### Hello, I'm SHREYA 👋
 
 I am passionate about technology and problem-solving. Here's a glimpse of my work:
 
