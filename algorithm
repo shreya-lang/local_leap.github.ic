@@ -1,6 +1,6 @@
 Data Structures Used
 struct for Entities:
-OrderItem, Order, Vendor, Product, Customer: Represent individual entities such as products, orders, vendors, etc.
+OrderItem, Order, Vendor, Product, Customer: Represent individual entities such as products, orders, vendors, etc. 
 Enums:
 
 Used for managing statuses or roles:
