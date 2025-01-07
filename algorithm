@@ -1,0 +1,59 @@
+Data Structures Used
+struct for Entities:
+OrderItem, Order, Vendor, Product, Customer: Represent individual entities such as products, orders, vendors, etc.
+Enums:
+
+Used for managing statuses or roles:
+OrderStatus: (PENDING, CONFIRMED, etc.)
+ReviewStatus: (PENDING, IN_PROGRESS, etc.)
+UserRole: (ADMIN, REVIEWER, etc.)
+vector:
+
+Used extensively for dynamic storage of entities.
+
+Algorithm Highlights
+CRUD Operations:
+
+For Vendors, Products, Customers, Orders, and Reviews:
+Create: Input validation, file storage.
+Read: Iterating through vector or file content to display data.
+Update: Locate entity in vector/file, modify, and re-save.
+Delete: Remove from vector or create a new file without the deleted entity.
+File Handling for Persistence:
+
+File I/O: Using ifstream and ofstream for reading/writing.
+Examples:
+Vendor persistence in "vendors.txt".
+Orders persistence in "orders.txt".
+Authentication:
+
+Vendor Login: Validate credentials against saved data.
+Customer and User Authentication: Verify passwords.
+Review Management System:
+
+Ratings and Average Calculation:
+
+
+Modules Overview
+Vendor Management:
+Add, edit, delete, and view vendors.
+Password protection using masked input.
+Product Management:
+
+Add, view, update, and delete products.
+Automatic product ID generation.
+Customer Management:
+
+Registration, login, update, and delete.
+Delivery location validation.
+Order Management:
+
+Place and view orders.
+Payment method selection.
+Review System:
+
+Manage user reviews with ratings, feedback, and status tracking.
+Notable Features
+Cross-Module Integration: All modules (vendors, products, customers, orders) interact smoothly.
+Enum and Struct Use: Provides clarity in managing statuses and data.
+Data Persistence: Ensures data is retained between program runs.
