@@ -1,4 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Code Display</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f9;
+            margin: 0;
+            padding: 20px;
+        }
+        pre {
+            background: #282c34;
+            color: #ffffff;
+            padding: 20px;
+            border-radius: 8px;
+            overflow-x: auto;
+            line-height: 1.5;
+        }
+        code {
+            font-family: Consolas, "Courier New", monospace;
+        }
+    </style>
+</head>
+<body>
+    <h1>Local Vendor Support System Code</h1>
+    <p>The following is the implementation of the Local Vendor Support System in C++:</p>
+    <pre><code>
 
+
+// Structure to store customer details
+struct Customer {
+    int id;
+    string name;
+    string email;
+    string phone;
+    string password;
+    string location;
+};
 #include <iostream>
 #include <vector>
 #include <string>
