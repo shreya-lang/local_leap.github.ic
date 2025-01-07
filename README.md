@@ -16,7 +16,7 @@ unlock the potential of local entrepreneurs
 ## 🚀 Skills
 - C++ 
 - Data Structures and Algorithms
-- Web Development
+
 
 ## 🌐 Find Me Online
 - [GitHub](https://github.com/shreya-lang)
